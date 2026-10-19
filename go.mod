@@ -1,4 +1,4 @@
-module aiupscaler
+module burgundyup
 
 go 1.24.0
 

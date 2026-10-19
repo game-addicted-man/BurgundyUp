@@ -1,4 +1,4 @@
-// AI 업스케일러 — 저해상도 이미지를 AI(Real-ESRGAN)로 선명하게 키워 주는 Windows 프로그램.
+// BurgundyUp — 저해상도 이미지를 AI(Real-ESRGAN)로 선명하게 키워 주는 Windows 프로그램.
 // 실제 업스케일은 Upscayl 의 엔진(upscayl-bin, ncnn + Vulkan)이 GPU 로 처리하고,
 // 이 프로그램은 화면(WebView2)과 작업 관리를 맡습니다.
 package main

@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"os"
 
-	"aiupscaler/tools/internal/fetch"
+	"burgundyup/tools/internal/fetch"
 )
 
 func main() {

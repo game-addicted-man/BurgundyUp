@@ -20,7 +20,7 @@ type Chromium struct {
 	controller            *ICoreWebView2Controller
 	webview               *ICoreWebView2
 	inited                uintptr
-	failed                uintptr // AI-Upscaler 패치: 환경·컨트롤러 생성 실패
+	failed                uintptr // BurgundyUp 패치: 환경·컨트롤러 생성 실패
 	envCompleted          *iCoreWebView2CreateCoreWebView2EnvironmentCompletedHandler
 	controllerCompleted   *iCoreWebView2CreateCoreWebView2ControllerCompletedHandler
 	webMessageReceived    *iCoreWebView2WebMessageReceivedEventHandler
@@ -110,7 +110,7 @@ func (e *Chromium) Embed(hwnd uintptr) bool {
 		_, _, _ = w32.User32TranslateMessage.Call(uintptr(unsafe.Pointer(&msg)))
 		_, _, _ = w32.User32DispatchMessageW.Call(uintptr(unsafe.Pointer(&msg)))
 	}
-	if atomic.LoadUintptr(&e.failed) != 0 || e.webview == nil { // AI-Upscaler 패치
+	if atomic.LoadUintptr(&e.failed) != 0 || e.webview == nil { // BurgundyUp 패치
 		return false
 	}
 	e.Init("window.external={invoke:s=>window.chrome.webview.postMessage(s)}")
@@ -173,7 +173,7 @@ func (e *Chromium) Release() uintptr {
 }
 
 func (e *Chromium) EnvironmentCompleted(res uintptr, env *ICoreWebView2Environment) uintptr {
-	// AI-Upscaler 패치: amd64 에서는 HRESULT 가 0 으로 확장돼 int64 비교가 항상 거짓이라
+	// BurgundyUp 패치: amd64 에서는 HRESULT 가 0 으로 확장돼 int64 비교가 항상 거짓이라
 	// 실패해도 env(nil)를 써서 프로그램이 죽었습니다. 실패를 표시하고 Embed 가 false 를 돌려주게 합니다.
 	if int32(res) < 0 || env == nil {
 		log.Printf("Creating environment failed with %08x", uint32(res))
@@ -193,7 +193,7 @@ func (e *Chromium) EnvironmentCompleted(res uintptr, env *ICoreWebView2Environme
 }
 
 func (e *Chromium) CreateCoreWebView2ControllerCompleted(res uintptr, controller *ICoreWebView2Controller) uintptr {
-	if int32(res) < 0 || controller == nil { // AI-Upscaler 패치 (위와 같은 이유)
+	if int32(res) < 0 || controller == nil { // BurgundyUp 패치 (위와 같은 이유)
 		log.Printf("Creating controller failed with %08x", uint32(res))
 		atomic.StoreUintptr(&e.failed, 1)
 		atomic.StoreUintptr(&e.inited, 1)
@@ -271,7 +271,7 @@ func (e *Chromium) PermissionRequested(_ *ICoreWebView2, args *iCoreWebView2Perm
 	var kind CoreWebView2PermissionKind
 	_, _, _ = args.vtbl.GetPermissionKind.Call(
 		uintptr(unsafe.Pointer(args)),
-		uintptr(unsafe.Pointer(&kind)), // AI-Upscaler 패치: 출력 인수에 주소를 넘김 (원래 코드는 NULL)
+		uintptr(unsafe.Pointer(&kind)), // BurgundyUp 패치: 출력 인수에 주소를 넘김 (원래 코드는 NULL)
 	)
 	var result CoreWebView2PermissionState
 	if e.globalPermission != nil {

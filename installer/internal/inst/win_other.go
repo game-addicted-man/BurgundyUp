@@ -3,7 +3,7 @@
 package inst
 
 // Windows 가 아닌 곳에서는 테스트용으로 흉내만 냅니다.
-// AIUP_INST_ANSWER 로 대화 상자의 답(예: 1=확인, 6=예, 2=취소)을 정할 수 있습니다.
+// BURGUNDYUP_INST_ANSWER 로 대화 상자의 답(예: 1=확인, 6=예, 2=취소)을 정할 수 있습니다.
 
 import (
 	"fmt"
@@ -17,7 +17,7 @@ func Init() {}
 
 func MessageBox(title, text string, flags uint32) int {
 	fmt.Printf("[%s] %s\n", title, text)
-	if v, err := strconv.Atoi(os.Getenv("AIUP_INST_ANSWER")); err == nil {
+	if v, err := strconv.Atoi(os.Getenv("BURGUNDYUP_INST_ANSWER")); err == nil {
 		return v
 	}
 	switch flags & 0xF {
@@ -31,7 +31,7 @@ func MessageBox(title, text string, flags uint32) int {
 
 func FileInUse(path string) bool { return false }
 
-func SingleInstance() bool { return os.Getenv("AIUP_INST_BUSY") == "" }
+func SingleInstance() bool { return os.Getenv("BURGUNDYUP_INST_BUSY") == "" }
 
 func CancelCleanup() {}
 
@@ -59,13 +59,19 @@ func CreateShortcut(lnk, target, args, workDir, icon, desc string) error {
 	return os.WriteFile(lnk, []byte("shortcut -> "+target+"\n"), 0o644)
 }
 
-func ShortcutPaths() (startMenu, desktop string) {
-	base := os.Getenv("AIUP_INST_SHORTCUTS")
+func ShortcutPaths() (startMenu, desktop string) { return shortcutPathsFor(DisplayName) }
+
+func shortcutPathsFor(name string) (startMenu, desktop string) {
+	base := os.Getenv("BURGUNDYUP_INST_SHORTCUTS")
 	if base == "" {
 		return "", ""
 	}
-	return filepath.Join(base, "StartMenu", DisplayName+".lnk"), filepath.Join(base, "Desktop", DisplayName+".lnk")
+	return filepath.Join(base, "StartMenu", name+".lnk"), filepath.Join(base, "Desktop", name+".lnk")
 }
+
+func legacyRegisteredDir() string { return os.Getenv("BURGUNDYUP_INST_LEGACY_DIR") }
+
+func unregisterApp(id string) error { return nil }
 
 func RegisterUninstall(dir string, sizeKB uint32) error { return nil }
 

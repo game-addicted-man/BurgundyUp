@@ -490,9 +490,9 @@ func (a *App) upscaleOne(ctx context.Context, it *Item, s Settings, onProgress f
 	_ = os.MkdirAll(tmpDir, 0o755)
 	// 엔진은 임시 이름으로 저장하고, 끝까지 성공했을 때만 진짜 이름으로 바꿉니다.
 	// (멈추거나 실패해도 반쪽짜리 파일이 결과처럼 남지 않게. 엔진은 맨 끝 확장자로 형식을 정합니다.)
-	partOut := strings.TrimSuffix(outPath, "."+s.Format) + ".aiup-part." + s.Format
+	partOut := strings.TrimSuffix(outPath, "."+s.Format) + ".burgundyup-part." + s.Format
 	if tooLongForEngine(partOut) {
-		partOut = filepath.Join(tmpDir, it.ID+".aiup-part."+s.Format)
+		partOut = filepath.Join(tmpDir, it.ID+".burgundyup-part."+s.Format)
 	}
 
 	comp := 0
@@ -634,7 +634,7 @@ func copyFile(src, dst string) error {
 }
 
 func dirWritable(dir string) bool {
-	f, err := os.CreateTemp(dir, ".aiup-*.tmp")
+	f, err := os.CreateTemp(dir, ".burgundyup-*.tmp")
 	if err != nil {
 		return false
 	}

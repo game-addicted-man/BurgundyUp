@@ -32,6 +32,7 @@ func init() {
 
 // 화면에서 열 수 있는 외부 링크 (그 외 주소는 열지 않습니다)
 var externalLinks = map[string]string{
+	"home":       "https://github.com/game-addicted-man/BurgundyUp",
 	"upscayl":    "https://github.com/upscayl/upscayl",
 	"realesrgan": "https://github.com/xinntao/Real-ESRGAN",
 	"driver":     "https://www.vulkan.org/tools#vulkan-gpu-resources",
@@ -104,7 +105,7 @@ func (a *App) handleIndex(w http.ResponseWriter, r *http.Request) {
 	if r.URL.Query().Get("t") != a.token {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		w.WriteHeader(http.StatusForbidden)
-		io.WriteString(w, `<!doctype html><meta charset="utf-8"><title>AI 업스케일러</title><body style="font-family:sans-serif;padding:40px">이 페이지는 AI 업스케일러 프로그램 안에서만 열 수 있어요. AI-Upscaler.exe 를 실행해 주세요.</body>`)
+		io.WriteString(w, `<!doctype html><meta charset="utf-8"><title>BurgundyUp</title><body style="font-family:sans-serif;padding:40px">이 페이지는 BurgundyUp 프로그램 안에서만 열 수 있어요. BurgundyUp.exe 를 실행해 주세요.</body>`)
 		return
 	}
 	b, err := uiFiles.ReadFile("ui/index.html")

@@ -1,7 +1,7 @@
 'use strict';
 (() => {
-  const TOKEN = window.AIUP.token;
-  const VERSION = window.AIUP.version;
+  const TOKEN = window.BURGUNDYUP.token;
+  const VERSION = window.BURGUNDYUP.version;
   const $ = (id) => document.getElementById(id);
   const IMG_RE = /\.(png|jpe?g|jfif|webp|bmp|tiff?|gif)$/i;
   const FINISHED = ['done', 'error', 'canceled'];
@@ -718,7 +718,7 @@
       S.fails++;
       if (S.fails === 3) {
         $('banner').hidden = false;
-        $('bannerText').textContent = '프로그램과 연결이 끊겼어요. 창을 닫고 AI-Upscaler.exe 를 다시 실행해 주세요.';
+        $('bannerText').textContent = '프로그램과 연결이 끊겼어요. 창을 닫고 BurgundyUp.exe 를 다시 실행해 주세요.';
       }
     }
     const fast = S.queue.active || S.download.state === 'running' || S.engine.state === 'checking' || S.uploading > 0;

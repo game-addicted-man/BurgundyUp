@@ -33,7 +33,8 @@ var (
 const (
 	createNoWindow         = 0x08000000
 	createBreakawayFromJob = 0x01000000
-	uninstallKey           = `Software\Microsoft\Windows\CurrentVersion\Uninstall\` + AppID
+	uninstallRoot          = `Software\Microsoft\Windows\CurrentVersion\Uninstall\`
+	uninstallKey           = uninstallRoot + AppID
 	runOnceKey             = `Software\Microsoft\Windows\CurrentVersion\RunOnce`
 	cleanupValue           = AppID + "-Cleanup"
 )
@@ -254,12 +255,14 @@ func knownFolder(id *windows.KNOWNFOLDERID) string {
 }
 
 // ShortcutPaths 는 시작 메뉴와 바탕 화면의 바로 가기 경로입니다.
-func ShortcutPaths() (startMenu, desktop string) {
+func ShortcutPaths() (startMenu, desktop string) { return shortcutPathsFor(DisplayName) }
+
+func shortcutPathsFor(name string) (startMenu, desktop string) {
 	if d := knownFolder(windows.FOLDERID_Programs); d != "" {
-		startMenu = filepath.Join(d, DisplayName+".lnk")
+		startMenu = filepath.Join(d, name+".lnk")
 	}
 	if d := knownFolder(windows.FOLDERID_Desktop); d != "" {
-		desktop = filepath.Join(d, DisplayName+".lnk")
+		desktop = filepath.Join(d, name+".lnk")
 	}
 	return
 }
@@ -295,10 +298,26 @@ func RegisterUninstall(dir string, sizeKB uint32) error {
 	return nil
 }
 
-func UnregisterUninstall() error {
-	err := registry.DeleteKey(registry.CURRENT_USER, uninstallKey)
+func UnregisterUninstall() error { return unregisterApp(AppID) }
+
+func unregisterApp(id string) error {
+	err := registry.DeleteKey(registry.CURRENT_USER, uninstallRoot+id)
 	if errors.Is(err, registry.ErrNotExist) {
 		return nil
 	}
 	return err
+}
+
+// legacyRegisteredDir 는 예전 이름으로 설치할 때 '설정 → 앱'에 등록한 설치 위치입니다.
+func legacyRegisteredDir() string {
+	k, err := registry.OpenKey(registry.CURRENT_USER, uninstallRoot+LegacyAppID, registry.QUERY_VALUE)
+	if err != nil {
+		return ""
+	}
+	defer k.Close()
+	d, _, err := k.GetStringValue("InstallLocation")
+	if err != nil {
+		return ""
+	}
+	return d
 }

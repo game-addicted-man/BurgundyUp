@@ -109,7 +109,7 @@ func Ensure(engineDir string, log Logger) error {
 		log("엔진과 모델이 이미 준비돼 있어요: %s", engineDir)
 		return nil
 	}
-	cache := filepath.Join(os.TempDir(), "aiup-fetch-cache")
+	cache := filepath.Join(os.TempDir(), "burgundyup-fetch-cache")
 	if err := os.MkdirAll(cache, 0o755); err != nil {
 		return err
 	}
@@ -138,7 +138,7 @@ func Ensure(engineDir string, log Logger) error {
 			continue
 		}
 		var urls []string
-		if m := strings.TrimSpace(os.Getenv("AIUP_RAW_MIRROR")); m != "" { // 테스트·사내 미러용
+		if m := strings.TrimSpace(os.Getenv("BURGUNDYUP_RAW_MIRROR")); m != "" { // 테스트·사내 미러용
 			urls = append(urls, strings.TrimRight(m, "/")+"/"+r.Path)
 		}
 		urls = append(urls,

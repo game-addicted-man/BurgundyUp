@@ -105,7 +105,7 @@ var instanceMutex windows.Handle
 // ensureSingleInstance 는 이미 실행 중이면 그 창을 앞으로 가져오고 false 를 돌려줍니다.
 // 두 개가 동시에 돌면 서로의 임시 파일을 지우거나 창 설정이 꼬일 수 있습니다.
 func ensureSingleInstance() bool {
-	name, _ := windows.UTF16PtrFromString(`Local\AI-Upscaler-SingleInstance`)
+	name, _ := windows.UTF16PtrFromString(`Local\BurgundyUp-SingleInstance`)
 	h, err := windows.CreateMutex(nil, false, name)
 	if err == nil {
 		instanceMutex = h
@@ -137,7 +137,7 @@ func ensureSingleInstance() bool {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	messageBox(appTitle, "AI 업스케일러가 이미 실행 중이에요.\n열려 있는 창이나 브라우저 탭을 확인해 주세요.", mbIconInfo)
+	messageBox(appTitle, "BurgundyUp이 이미 실행 중이에요.\n열려 있는 창이나 브라우저 탭을 확인해 주세요.", mbIconInfo)
 	return false
 }
 
@@ -359,7 +359,7 @@ func runWebView(a *App, marker string) bool {
 	}()
 	w, h, mw, mh := scaledWindowSize()
 	wv := webview2.NewWithOptions(webview2.WebViewOptions{
-		Debug:     os.Getenv("AIUP_DEBUG") == "1",
+		Debug:     os.Getenv("BURGUNDYUP_DEBUG") == "1",
 		AutoFocus: true,
 		DataPath:  filepath.Join(a.DataDir, "WebView2"),
 		WindowOptions: webview2.WindowOptions{

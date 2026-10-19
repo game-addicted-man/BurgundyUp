@@ -5,8 +5,8 @@
 //
 // 결과 (dist 폴더):
 //
-//	AI-Upscaler-Setup-<버전>.exe        설치 파일
-//	AI-Upscaler-<버전>-portable.zip    설치 없이 쓰는 압축판
+//	BurgundyUp-Setup-<버전>.exe        설치 파일
+//	BurgundyUp-<버전>-portable.zip    설치 없이 쓰는 압축판
 //	SHA256SUMS.txt
 package main
 
@@ -26,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"aiupscaler/tools/internal/fetch"
+	"burgundyup/tools/internal/fetch"
 )
 
 func main() {
@@ -66,7 +66,7 @@ func run(version, outDir string, noFetch bool) error {
 	if !filepath.IsAbs(outDir) {
 		outDir = filepath.Join(root, outDir)
 	}
-	logf("AI 업스케일러 %s 빌드를 시작해요", version)
+	logf("BurgundyUp %s 빌드를 시작해요", version)
 
 	// 1) 엔진과 모델
 	engineDir := filepath.Join(root, "engine")
@@ -84,17 +84,17 @@ func run(version, outDir string, noFetch bool) error {
 
 	// 2) 프로그램 파일 모으기
 	logf("\n[2/4] 프로그램 빌드")
-	stage := filepath.Join(outDir, "stage", "AI-Upscaler")
+	stage := filepath.Join(outDir, "stage", "BurgundyUp")
 	if err := os.RemoveAll(filepath.Join(outDir, "stage")); err != nil {
 		return err
 	}
 	if err := os.MkdirAll(stage, 0o755); err != nil {
 		return err
 	}
-	if err := goBuild(root, ".", filepath.Join(stage, "AI-Upscaler.exe"), "-X main.appVersion="+version); err != nil {
+	if err := goBuild(root, ".", filepath.Join(stage, "BurgundyUp.exe"), "-X main.appVersion="+version); err != nil {
 		return fmt.Errorf("프로그램 빌드 실패: %w", err)
 	}
-	if err := goBuild(root, "./installer/uninstall", filepath.Join(stage, "uninstall.exe"), "-X aiupscaler/installer/internal/inst.Version="+version); err != nil {
+	if err := goBuild(root, "./installer/uninstall", filepath.Join(stage, "uninstall.exe"), "-X burgundyup/installer/internal/inst.Version="+version); err != nil {
 		return fmt.Errorf("삭제 프로그램 빌드 실패: %w", err)
 	}
 	for _, rel := range fetch.Files() {
@@ -105,7 +105,7 @@ func run(version, outDir string, noFetch bool) error {
 	if err := copyDir(filepath.Join(root, "licenses"), filepath.Join(stage, "licenses")); err != nil {
 		return err
 	}
-	if err := copyFile(filepath.Join(root, "LICENSE"), filepath.Join(stage, "licenses", "AI-Upscaler-LICENSE.txt")); err != nil {
+	if err := copyFile(filepath.Join(root, "LICENSE"), filepath.Join(stage, "licenses", "BurgundyUp-LICENSE.txt")); err != nil {
 		return err
 	}
 	if err := writeWindowsText(filepath.Join(root, "사용법.txt"), filepath.Join(stage, "사용법.txt")); err != nil {
@@ -114,8 +114,8 @@ func run(version, outDir string, noFetch bool) error {
 
 	// 3) 압축판과 설치 파일 속 묶음
 	logf("\n[3/4] 압축판 만들기")
-	portable := filepath.Join(outDir, fmt.Sprintf("AI-Upscaler-%s-portable.zip", version))
-	if err := zipDir(stage, portable, "AI-Upscaler/", map[string]bool{"uninstall.exe": true}); err != nil {
+	portable := filepath.Join(outDir, fmt.Sprintf("BurgundyUp-%s-portable.zip", version))
+	if err := zipDir(stage, portable, "BurgundyUp/", map[string]bool{"uninstall.exe": true}); err != nil {
 		return err
 	}
 	payload := filepath.Join(root, "installer", "setup", "payload", "payload.zip")
@@ -128,8 +128,8 @@ func run(version, outDir string, noFetch bool) error {
 
 	// 4) 설치 파일
 	logf("\n[4/4] 설치 파일 만들기")
-	setup := filepath.Join(outDir, fmt.Sprintf("AI-Upscaler-Setup-%s.exe", version))
-	if err := goBuild(root, "./installer/setup", setup, "-X aiupscaler/installer/internal/inst.Version="+version); err != nil {
+	setup := filepath.Join(outDir, fmt.Sprintf("BurgundyUp-Setup-%s.exe", version))
+	if err := goBuild(root, "./installer/setup", setup, "-X burgundyup/installer/internal/inst.Version="+version); err != nil {
 		return fmt.Errorf("설치 파일 빌드 실패: %w", err)
 	}
 	_ = os.RemoveAll(filepath.Join(outDir, "stage"))
@@ -157,7 +157,7 @@ func findRoot() (string, error) {
 		return "", err
 	}
 	for {
-		if b, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && strings.Contains(string(b), "module aiupscaler") {
+		if b, err := os.ReadFile(filepath.Join(dir, "go.mod")); err == nil && strings.Contains(string(b), "module burgundyup") {
 			return dir, nil
 		}
 		parent := filepath.Dir(dir)

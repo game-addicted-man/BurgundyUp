@@ -1,10 +1,10 @@
-# UpScayl
+# BurgundyUp
 AI 업스케일링 프로그램
 
-**AI 업스케일러**는 작거나 흐릿한 이미지를 AI로 2~4배 선명하게 키워 주는 Windows 프로그램입니다.
+**BurgundyUp**은 작거나 흐릿한 이미지를 AI로 2~4배 선명하게 키워 주는 Windows 프로그램입니다.
 [Upscayl](https://github.com/upscayl/upscayl)과 같은 엔진(Real-ESRGAN, ncnn + Vulkan)을 써서 그래픽카드로 처리하고, 모든 작업은 내 PC 안에서 이뤄집니다.
 
-![AI 업스케일러 화면](docs/screenshot-main.png)
+![BurgundyUp 화면](docs/screenshot-main.png)
 
 ## 주요 기능
 
@@ -20,14 +20,15 @@ AI 업스케일링 프로그램
 
 ## 다운로드와 설치
 
-1. [Releases](https://github.com/game-addicted-man/UpScayl/releases)에서 `AI-Upscaler-Setup-버전.exe`를 받아 실행합니다.
+1. [Releases](https://github.com/game-addicted-man/BurgundyUp/releases)에서 `BurgundyUp-Setup-버전.exe`를 받아 실행합니다.
 2. "Windows의 PC 보호" 창이 뜨면 **추가 정보 → 실행**을 누릅니다 (서명하지 않은 프로그램이라 나오는 안내).
-3. 설치가 끝나면 시작 메뉴나 바탕 화면의 **AI 업스케일러**를 실행합니다.
+3. 설치가 끝나면 시작 메뉴나 바탕 화면의 **BurgundyUp**을 실행합니다.
 
-- 설치 위치: `%LOCALAPPDATA%\Programs\AI-Upscaler` (관리자 권한 필요 없음)
-- 삭제: **설정 → 앱 → 설치된 앱 → AI 업스케일러 → 제거**
-- 설치 없이 쓰려면 `AI-Upscaler-버전-portable.zip`을 풀고 `AI-Upscaler.exe`를 실행하세요.
-- 조용히 설치: `AI-Upscaler-Setup-버전.exe /S` (위치 지정은 맨 끝에 `/D=폴더`)
+- 설치 위치: `%LOCALAPPDATA%\Programs\BurgundyUp` (관리자 권한 필요 없음)
+- 삭제: **설정 → 앱 → 설치된 앱 → BurgundyUp → 제거**
+- 설치 없이 쓰려면 `BurgundyUp-버전-portable.zip`을 풀고 `BurgundyUp.exe`를 실행하세요.
+- 조용히 설치: `BurgundyUp-Setup-버전.exe /S` (위치 지정은 맨 끝에 `/D=폴더`)
+- 예전 이름(AI 업스케일러)으로 설치했다면 새 설치 파일이 알아서 지우고 바꿔 줍니다. 내려받은 모델은 옮겨 오고, 결과 이미지는 그대로 둡니다.
 
 ### 필요 사양
 
@@ -99,7 +100,7 @@ upscayl-bin.exe -i 원본 -o 결과.png -m models -n 모델 -z 모델배율 [-s 
 ### GPU 없이 개발하기
 
 ```
-AIUP_ENGINE=tools/fake-upscayl.py AIUP_DATADIR=/tmp/aiup go run . --headless
+BURGUNDYUP_ENGINE=tools/fake-upscayl.py BURGUNDYUP_DATADIR=/tmp/burgundyup go run . --headless
 ```
 
 출력된 주소를 브라우저로 열면 화면을 확인할 수 있습니다 (가짜 엔진은 Python + Pillow 필요).

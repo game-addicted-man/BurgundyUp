@@ -28,7 +28,7 @@ jobs:
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: AI-Upscaler
+          name: BurgundyUp
           path: |
             dist/*.exe
             dist/*.zip
@@ -37,6 +37,6 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/v')
         with:
           files: |
-            dist/AI-Upscaler-Setup-*.exe
-            dist/AI-Upscaler-*-portable.zip
+            dist/BurgundyUp-Setup-*.exe
+            dist/BurgundyUp-*-portable.zip
             dist/SHA256SUMS.txt

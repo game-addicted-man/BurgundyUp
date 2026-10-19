@@ -1,5 +1,5 @@
-// AI 업스케일러 설치 프로그램.
-// 관리자 권한 없이 %LOCALAPPDATA%\Programs\AI-Upscaler 에 설치하고,
+// BurgundyUp 설치 프로그램.
+// 관리자 권한 없이 %LOCALAPPDATA%\Programs\BurgundyUp 에 설치하고,
 // 시작 메뉴·바탕 화면 바로 가기와 '설정 → 앱'의 제거 항목을 만듭니다.
 //
 // 옵션: /S (조용히 설치), /D=<폴더> (설치 위치 지정)
@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"aiupscaler/installer/internal/inst"
+	"burgundyup/installer/internal/inst"
 )
 
 // tools/release 가 payload/payload.zip 을 만든 뒤 이 프로그램을 빌드합니다.
@@ -20,7 +20,7 @@ import (
 //go:embed payload
 var payload embed.FS
 
-const title = "AI 업스케일러 설치"
+const title = "BurgundyUp 설치"
 
 func main() {
 	inst.Init()
@@ -65,29 +65,38 @@ parse:
 		fail("이 폴더에는 설치할 수 없어요:\n"+dir+"\n\n프로그램의 설정·기록 폴더와 겹쳐요. 다른 폴더를 골라 주세요.", 1)
 	}
 
+	// 예전 이름(AI 업스케일러)으로 설치한 것이 있으면 새로 설치하면서 정리합니다.
+	legacy := inst.FindLegacy()
+
 	if !silent {
 		msg := fmt.Sprintf("%s %s을(를) 설치할까요?\n\n설치 위치:\n%s\n\n시작 메뉴와 바탕 화면에 바로 가기를 만들어요.\n관리자 권한은 필요 없어요.",
 			inst.DisplayName, inst.Version, dir)
+		if legacy != nil {
+			msg += "\n\n예전 이름(" + inst.LegacyDisplayName + ")으로 설치된 프로그램은 지우고 바꿔요.\n내려받은 모델은 옮겨 오고, 결과 이미지는 그대로 둬요."
+		}
 		if inst.MessageBox(title, msg, inst.MB_OKCANCEL|inst.MB_ICONQUESTION) != inst.IDOK {
 			os.Exit(2)
 		}
 	}
 
 	exe := filepath.Join(dir, inst.AppExe)
-	engine := filepath.Join(dir, "engine", "upscayl-bin.exe")
-	for inst.FileInUse(exe) || inst.FileInUse(engine) {
+	busy := []string{exe, filepath.Join(dir, "engine", "upscayl-bin.exe")}
+	if legacy != nil {
+		busy = append(busy, filepath.Join(legacy.Dir, inst.LegacyAppExe), filepath.Join(legacy.Dir, "engine", "upscayl-bin.exe"))
+	}
+	for inUse(busy) {
 		if silent {
-			fail("AI 업스케일러가 실행 중이라 설치할 수 없어요.", 3)
+			fail("BurgundyUp(또는 예전 "+inst.LegacyDisplayName+")이 실행 중이라 설치할 수 없어요.", 3)
 		}
-		if inst.MessageBox(title, "AI 업스케일러가 실행 중이에요.\n프로그램 창을 닫은 뒤 '다시 시도'를 눌러 주세요.",
+		if inst.MessageBox(title, "BurgundyUp(또는 예전 "+inst.LegacyDisplayName+")이 실행 중이에요.\n프로그램 창을 닫은 뒤 '다시 시도'를 눌러 주세요.",
 			inst.MB_RETRYCANCEL|inst.MB_ICONWARNING) != inst.IDRETRY {
 			os.Exit(2)
 		}
 	}
 
 	inst.CancelCleanup()
-	var oldFiles []string // 이전에 설치한 버전이 있으면 그 파일 목록
-	if old, err := inst.ReadMarker(dir); err == nil {
+	var oldFiles []string // 이전에 설치한 버전(예전 이름 포함)이 같은 폴더에 있으면 그 파일 목록
+	if old, err := inst.ReadPreviousMarker(dir); err == nil {
 		oldFiles = old.Files
 	}
 	files, err := inst.Extract(data, dir)
@@ -105,6 +114,11 @@ parse:
 	}
 
 	var warns []string
+	if legacy != nil {
+		if failed := inst.RemoveLegacy(legacy, dir); len(failed) > 0 {
+			warns = append(warns, "예전 "+inst.LegacyDisplayName+"의 일부 파일을 지우지 못했어요. '설정 → 앱'에서 "+inst.LegacyDisplayName+"을(를) 제거해 주세요.")
+		}
+	}
 	startMenu, desktop := inst.ShortcutPaths()
 	for _, lnk := range []string{startMenu, desktop} {
 		if lnk == "" {
@@ -128,10 +142,19 @@ parse:
 	if len(warns) > 0 {
 		msg += "\n\n일부 작업은 하지 못했어요:\n" + strings.Join(warns, "\n")
 	}
-	msg += "\n\n지금 AI 업스케일러를 실행할까요?"
+	msg += "\n\n지금 BurgundyUp을 실행할까요?"
 	if inst.MessageBox(title, msg, inst.MB_YESNO|inst.MB_ICONINFO) == inst.IDYES {
 		if err := inst.StartDetached(exe, dir); err != nil {
 			inst.MessageBox(title, "프로그램을 실행하지 못했어요:\n"+err.Error(), inst.MB_OK|inst.MB_ICONERROR)
 		}
 	}
+}
+
+func inUse(paths []string) bool {
+	for _, p := range paths {
+		if inst.FileInUse(p) {
+			return true
+		}
+	}
+	return false
 }

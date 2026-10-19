@@ -1,4 +1,4 @@
-# AI-Upscaler 에서 고친 부분
+# BurgundyUp 에서 고친 부분
 
 원본: https://github.com/jchv/go-webview2 (커밋 56598839c808)
 

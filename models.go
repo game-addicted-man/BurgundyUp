@@ -329,7 +329,7 @@ func (d *Downloader) Cancel() {
 
 func modelURLs(file string) []string {
 	var urls []string
-	if base := strings.TrimSpace(os.Getenv("AIUP_MODEL_BASEURL")); base != "" { // 테스트용
+	if base := strings.TrimSpace(os.Getenv("BURGUNDYUP_MODEL_BASEURL")); base != "" { // 테스트용
 		urls = append(urls, strings.TrimRight(base, "/")+"/"+file)
 	}
 	urls = append(urls,
@@ -430,7 +430,7 @@ func (d *Downloader) fetch(ctx context.Context, url, final string, f modelFile) 
 	if err != nil {
 		return err
 	}
-	req.Header.Set("User-Agent", "AI-Upscaler/"+appVersion)
+	req.Header.Set("User-Agent", "BurgundyUp/"+appVersion)
 	client := &http.Client{Transport: &http.Transport{
 		Proxy:                 http.ProxyFromEnvironment,
 		TLSHandshakeTimeout:   20 * time.Second,

@@ -27,14 +27,14 @@ func makeZip(t *testing.T, files map[string]string) []byte {
 
 func TestExtractAndOverwrite(t *testing.T) {
 	dir := t.TempDir()
-	files, err := Extract(makeZip(t, map[string]string{"AI-Upscaler.exe": "v1", "engine/models/a.param": "p"}), dir)
+	files, err := Extract(makeZip(t, map[string]string{"BurgundyUp.exe": "v1", "engine/models/a.param": "p"}), dir)
 	if err != nil || len(files) != 2 {
 		t.Fatalf("extract: %v %v", files, err)
 	}
-	if _, err := Extract(makeZip(t, map[string]string{"AI-Upscaler.exe": "v2"}), dir); err != nil {
+	if _, err := Extract(makeZip(t, map[string]string{"BurgundyUp.exe": "v2"}), dir); err != nil {
 		t.Fatal(err)
 	}
-	if b, _ := os.ReadFile(filepath.Join(dir, "AI-Upscaler.exe")); string(b) != "v2" {
+	if b, _ := os.ReadFile(filepath.Join(dir, "BurgundyUp.exe")); string(b) != "v2" {
 		t.Fatalf("overwrite failed: %q", b)
 	}
 	if left, _ := filepath.Glob(filepath.Join(dir, "*.new")); len(left) > 0 {
@@ -58,7 +58,7 @@ func TestExtractRejectsZipSlip(t *testing.T) {
 func TestMarkerAndSafeRemoval(t *testing.T) {
 	dir := t.TempDir()
 	files, err := Extract(makeZip(t, map[string]string{
-		"AI-Upscaler.exe": "x", "uninstall.exe": "u", "engine/upscayl-bin.exe": "e",
+		"BurgundyUp.exe": "x", "uninstall.exe": "u", "engine/upscayl-bin.exe": "e",
 		"engine/models/realesrgan-x4plus.param": "p", "licenses/a.txt": "l",
 	}), dir)
 	if err != nil {
@@ -130,8 +130,8 @@ func TestLinkedFoldersAreNotFollowed(t *testing.T) {
 	if err := os.Symlink(lib, filepath.Join(dir, "engine", "models")); err != nil {
 		t.Skip("symlink not supported:", err)
 	}
-	os.WriteFile(filepath.Join(dir, "AI-Upscaler.exe"), []byte("x"), 0o644)
-	m := &Marker{App: AppID, Files: []string{"AI-Upscaler.exe", "engine/models/realesrgan-x4plus.bin"}}
+	os.WriteFile(filepath.Join(dir, "BurgundyUp.exe"), []byte("x"), 0o644)
+	m := &Marker{App: AppID, Files: []string{"BurgundyUp.exe", "engine/models/realesrgan-x4plus.bin"}}
 	if failed := RemoveInstalled(dir, m, ""); len(failed) != 0 {
 		t.Fatal(failed)
 	}
@@ -143,15 +143,15 @@ func TestLinkedFoldersAreNotFollowed(t *testing.T) {
 	if _, err := os.Lstat(filepath.Join(dir, "engine", "models")); err != nil {
 		t.Fatal("the link itself was removed")
 	}
-	if _, err := os.Stat(filepath.Join(dir, "AI-Upscaler.exe")); err == nil {
+	if _, err := os.Stat(filepath.Join(dir, "BurgundyUp.exe")); err == nil {
 		t.Fatal("normal file not removed")
 	}
 }
 
 func TestUpgradeRemovesStaleFiles(t *testing.T) {
 	dir := t.TempDir()
-	v1, _ := Extract(makeZip(t, map[string]string{"AI-Upscaler.exe": "1", "engine/old.dll": "o", "licenses/a.txt": "l"}), dir)
-	v2, _ := Extract(makeZip(t, map[string]string{"AI-Upscaler.exe": "2", "licenses/a.txt": "l"}), dir)
+	v1, _ := Extract(makeZip(t, map[string]string{"BurgundyUp.exe": "1", "engine/old.dll": "o", "licenses/a.txt": "l"}), dir)
+	v2, _ := Extract(makeZip(t, map[string]string{"BurgundyUp.exe": "2", "licenses/a.txt": "l"}), dir)
 	stale := StaleFiles(v1, v2)
 	if len(stale) != 1 || stale[0] != "engine/old.dll" {
 		t.Fatalf("stale = %v", stale)
@@ -159,7 +159,7 @@ func TestUpgradeRemovesStaleFiles(t *testing.T) {
 	if failed := RemoveFiles(dir, stale, ""); len(failed) != 0 {
 		t.Fatal(failed)
 	}
-	if got := listTree(dir); strings.Join(got, ",") != "AI-Upscaler.exe,licenses,licenses/a.txt" {
+	if got := listTree(dir); strings.Join(got, ",") != "BurgundyUp.exe,licenses,licenses/a.txt" {
 		t.Fatalf("after upgrade: %v", got)
 	}
 	if u := Union([]string{"a", "B"}, []string{"b", "c"}); strings.Join(u, ",") != "a,B,c" {
@@ -169,7 +169,7 @@ func TestUpgradeRemovesStaleFiles(t *testing.T) {
 
 func TestOverlaps(t *testing.T) {
 	base := t.TempDir()
-	data := filepath.Join(base, "AppData", "AI-Upscaler")
+	data := filepath.Join(base, "AppData", "BurgundyUp")
 	cases := []struct {
 		dir  string
 		want bool
@@ -178,8 +178,8 @@ func TestOverlaps(t *testing.T) {
 		{filepath.Join(data, "app"), true},
 		{filepath.Join(base, "AppData"), true},
 		{strings.ToUpper(data), true}, // 대소문자 무시
-		{filepath.Join(base, "AppData", "AI-Upscaler-2"), false},
-		{filepath.Join(base, "Programs", "AI-Upscaler"), false},
+		{filepath.Join(base, "AppData", "BurgundyUp-2"), false},
+		{filepath.Join(base, "Programs", "BurgundyUp"), false},
 	}
 	for _, c := range cases {
 		if got := Overlaps(c.dir, data); got != c.want {

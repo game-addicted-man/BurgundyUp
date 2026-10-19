@@ -39,7 +39,7 @@ func opener() string {
 }
 
 func openPath(p string) error {
-	if os.Getenv("AIUP_NO_OPEN") == "1" {
+	if os.Getenv("BURGUNDYUP_NO_OPEN") == "1" {
 		logf("(테스트) 열기: %s", p)
 		return nil
 	}
@@ -50,13 +50,13 @@ func openURL(u string) error { return openPath(u) }
 
 func revealInFolder(p string) error { return openPath(filepath.Dir(p)) }
 
-// 테스트용: AIUP_FAKE_PICK="a.png;b.png", AIUP_FAKE_PICK_DIR="/폴더" 로 선택 창을 흉내 냅니다.
+// 테스트용: BURGUNDYUP_FAKE_PICK="a.png;b.png", BURGUNDYUP_FAKE_PICK_DIR="/폴더" 로 선택 창을 흉내 냅니다.
 func canPickDialogs() bool {
-	return os.Getenv("AIUP_FAKE_PICK") != "" || os.Getenv("AIUP_FAKE_PICK_DIR") != ""
+	return os.Getenv("BURGUNDYUP_FAKE_PICK") != "" || os.Getenv("BURGUNDYUP_FAKE_PICK_DIR") != ""
 }
 
 func pickImageFiles() ([]string, error) {
-	v := os.Getenv("AIUP_FAKE_PICK")
+	v := os.Getenv("BURGUNDYUP_FAKE_PICK")
 	if v == "" {
 		return nil, errors.New("선택 창을 지원하지 않는 환경이에요")
 	}
@@ -64,7 +64,7 @@ func pickImageFiles() ([]string, error) {
 }
 
 func pickFolder(title string) (string, error) {
-	v := os.Getenv("AIUP_FAKE_PICK_DIR")
+	v := os.Getenv("BURGUNDYUP_FAKE_PICK_DIR")
 	if v == "" {
 		return "", errors.New("선택 창을 지원하지 않는 환경이에요")
 	}

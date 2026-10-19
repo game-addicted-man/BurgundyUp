@@ -19,8 +19,8 @@ import (
 )
 
 const (
-	appName  = "AI-Upscaler"
-	appTitle = "AI 업스케일러"
+	appName  = "BurgundyUp"
+	appTitle = "BurgundyUp"
 )
 
 // appVersion 은 빌드할 때 -ldflags "-X main.appVersion=1.2.3" 으로 바꿀 수 있습니다 (tools/release 가 VERSION 파일 값을 넣음).
@@ -32,8 +32,8 @@ type App struct {
 	EngineDir  string // BaseDir\engine
 	EnginePath string // BaseDir\engine\upscayl-bin.exe
 	ModelsDir  string // BaseDir\engine\models
-	ConfigDir  string // 설정 (%APPDATA%\AI-Upscaler)
-	DataDir    string // 기록·임시 파일 (%LOCALAPPDATA%\AI-Upscaler)
+	ConfigDir  string // 설정 (%APPDATA%\BurgundyUp)
+	DataDir    string // 기록·임시 파일 (%LOCALAPPDATA%\BurgundyUp)
 	UploadDir  string
 	LogPath    string
 
@@ -65,7 +65,7 @@ func exeName() string {
 // findBaseDir 는 engine 폴더가 있는 위치를 찾습니다.
 // 보통은 exe 옆이고, 개발 중(go run)에는 현재 폴더나 그 상위 폴더입니다.
 func findBaseDir() string {
-	if d := os.Getenv("AIUP_BASEDIR"); d != "" {
+	if d := os.Getenv("BURGUNDYUP_BASEDIR"); d != "" {
 		return d
 	}
 	var cands []string
@@ -94,7 +94,7 @@ func NewApp() (*App, error) {
 	a.BaseDir = findBaseDir()
 	a.EngineDir = filepath.Join(a.BaseDir, "engine")
 	a.EnginePath = filepath.Join(a.EngineDir, exeName())
-	if p := os.Getenv("AIUP_ENGINE"); p != "" { // 테스트용 가짜 엔진
+	if p := os.Getenv("BURGUNDYUP_ENGINE"); p != "" { // 테스트용 가짜 엔진
 		a.EnginePath = p
 	}
 	a.ModelsDir = filepath.Join(a.EngineDir, "models")
@@ -111,9 +111,9 @@ func NewApp() (*App, error) {
 
 	if _, err := os.Stat(a.EnginePath); err != nil {
 		msg := "엔진 파일을 찾을 수 없어요:\n" + a.EnginePath + "\n\n" +
-			"AI-Upscaler 폴더 안의 engine 폴더를 지우거나 옮기지 말고, exe 파일과 같은 위치에 두세요."
+			"BurgundyUp 폴더 안의 engine 폴더를 지우거나 옮기지 말고, exe 파일과 같은 위치에 두세요."
 		if looksLikeZipTemp(a.BaseDir) {
-			msg = "압축 파일 안에서 바로 실행한 것 같아요.\n\n먼저 압축 파일을 마우스 오른쪽 버튼 → '압축 풀기'로 풀고,\n풀린 폴더 안의 AI-Upscaler.exe 를 실행해 주세요."
+			msg = "압축 파일 안에서 바로 실행한 것 같아요.\n\n먼저 압축 파일을 마우스 오른쪽 버튼 → '압축 풀기'로 풀고,\n풀린 폴더 안의 BurgundyUp.exe 를 실행해 주세요."
 		}
 		return nil, errors.New(msg)
 	}
@@ -135,9 +135,9 @@ func NewApp() (*App, error) {
 	return a, nil
 }
 
-// appDirs 는 설정 폴더(%APPDATA%\AI-Upscaler)와 기록·임시 폴더(%LOCALAPPDATA%\AI-Upscaler)를 돌려줍니다.
+// appDirs 는 설정 폴더(%APPDATA%\BurgundyUp)와 기록·임시 폴더(%LOCALAPPDATA%\BurgundyUp)를 돌려줍니다.
 func appDirs(base string) (config, data string) {
-	if d := os.Getenv("AIUP_DATADIR"); d != "" {
+	if d := os.Getenv("BURGUNDYUP_DATADIR"); d != "" {
 		return d, d
 	}
 	cfg, err := os.UserConfigDir()

@@ -17,20 +17,27 @@ import (
 )
 
 const (
-	AppID        = "AI-Upscaler"     // 폴더·레지스트리에 쓰는 이름
-	DisplayName  = "AI 업스케일러"        // 화면에 보이는 이름
-	AppExe       = "AI-Upscaler.exe" // 프로그램
-	UninstallExe = "uninstall.exe"   // 삭제 프로그램
-	MarkerName   = "install.json"    // 설치 정보 (삭제할 때 우리 폴더가 맞는지 확인)
-	Publisher    = "AI-Upscaler"
+	AppID        = "BurgundyUp"     // 폴더·레지스트리에 쓰는 이름
+	DisplayName  = "BurgundyUp"     // 화면에 보이는 이름
+	AppExe       = "BurgundyUp.exe" // 프로그램
+	UninstallExe = "uninstall.exe"  // 삭제 프로그램
+	MarkerName   = "install.json"   // 설치 정보 (삭제할 때 우리 폴더가 맞는지 확인)
+	Publisher    = "BurgundyUp"
 	ShortcutDesc = "저해상도 이미지를 AI로 선명하게 키워요"
 )
 
-// Version 은 빌드할 때 -ldflags "-X aiupscaler/installer/internal/inst.Version=1.2.3" 으로 정해집니다.
+// 이 프로그램의 예전 이름. 예전 이름으로 설치한 것이 있으면 새로 설치할 때 정리합니다.
+const (
+	LegacyAppID       = "AI-Upscaler"
+	LegacyDisplayName = "AI 업스케일러"
+	LegacyAppExe      = "AI-Upscaler.exe"
+)
+
+// Version 은 빌드할 때 -ldflags "-X burgundyup/installer/internal/inst.Version=1.2.3" 으로 정해집니다.
 var Version = "1.0.0"
 
 // DefaultInstallDir 은 관리자 권한 없이 설치할 수 있는 사용자별 프로그램 폴더입니다.
-// Windows: %LOCALAPPDATA%\Programs\AI-Upscaler
+// Windows: %LOCALAPPDATA%\Programs\BurgundyUp
 func DefaultInstallDir() string {
 	base, err := os.UserCacheDir()
 	if err != nil {
@@ -40,12 +47,14 @@ func DefaultInstallDir() string {
 }
 
 // AppDataDirs 는 프로그램이 쓰는 설정 폴더와 데이터(기록·임시) 폴더입니다. 프로그램(app.go)과 같은 규칙입니다.
-func AppDataDirs() (config, data string) {
+func AppDataDirs() (config, data string) { return dataDirsFor(AppID) }
+
+func dataDirsFor(id string) (config, data string) {
 	if d, err := os.UserConfigDir(); err == nil {
-		config = filepath.Join(d, AppID)
+		config = filepath.Join(d, id)
 	}
 	if d, err := os.UserCacheDir(); err == nil {
-		data = filepath.Join(d, AppID)
+		data = filepath.Join(d, id)
 	}
 	return
 }
@@ -167,8 +176,10 @@ func retry(f func() error) error {
 	return err
 }
 
-func WriteMarker(dir string, files []string) error {
-	m := Marker{App: AppID, Version: Version, InstalledAt: time.Now().Format(time.RFC3339), Files: files}
+func WriteMarker(dir string, files []string) error { return writeMarkerAs(dir, AppID, Version, files) }
+
+func writeMarkerAs(dir, app, version string, files []string) error {
+	m := Marker{App: app, Version: version, InstalledAt: time.Now().Format(time.RFC3339), Files: files}
 	b, err := json.MarshalIndent(m, "", "  ")
 	if err != nil {
 		return err
@@ -176,7 +187,13 @@ func WriteMarker(dir string, files []string) error {
 	return os.WriteFile(filepath.Join(dir, MarkerName), b, 0o644)
 }
 
-func ReadMarker(dir string) (*Marker, error) {
+// ReadMarker 는 이 프로그램의 설치 정보를 읽습니다 (다른 프로그램의 것이면 오류).
+func ReadMarker(dir string) (*Marker, error) { return readMarkerAs(dir, AppID) }
+
+// ReadPreviousMarker 는 업데이트할 때 쓰며, 예전 이름으로 같은 폴더에 설치한 설치 정보도 받아들입니다.
+func ReadPreviousMarker(dir string) (*Marker, error) { return readMarkerAs(dir, AppID, LegacyAppID) }
+
+func readMarkerAs(dir string, apps ...string) (*Marker, error) {
 	b, err := os.ReadFile(filepath.Join(dir, MarkerName))
 	if err != nil {
 		return nil, err
@@ -185,10 +202,94 @@ func ReadMarker(dir string) (*Marker, error) {
 	if err := json.Unmarshal(b, &m); err != nil {
 		return nil, err
 	}
-	if m.App != AppID {
-		return nil, errors.New("다른 프로그램의 설치 정보예요")
+	for _, app := range apps {
+		if m.App == app {
+			return &m, nil
+		}
 	}
-	return &m, nil
+	return nil, errors.New("다른 프로그램의 설치 정보예요")
+}
+
+// Legacy 는 예전 이름(AI 업스케일러)으로 설치한 프로그램입니다.
+type Legacy struct {
+	Dir    string
+	Marker *Marker
+}
+
+// FindLegacy 는 예전 이름으로 설치한 프로그램을 찾습니다. 설치 정보(install.json)가 있어야만 인정합니다.
+func FindLegacy() *Legacy {
+	var cands []string
+	if d := legacyRegisteredDir(); d != "" {
+		cands = append(cands, d)
+	}
+	if base, err := os.UserCacheDir(); err == nil {
+		cands = append(cands, filepath.Join(base, "Programs", LegacyAppID))
+	}
+	for _, d := range cands {
+		if abs, err := filepath.Abs(d); err == nil {
+			if m, err := readMarkerAs(abs, LegacyAppID); err == nil {
+				return &Legacy{Dir: abs, Marker: m}
+			}
+		}
+	}
+	return nil
+}
+
+// RemoveLegacy 는 예전 이름으로 설치한 프로그램과 그 바로 가기·'설정 → 앱' 항목·설정 폴더를 지웁니다.
+// 내려받았거나 직접 넣은 모델은 새 설치 폴더(newDir)로 옮깁니다. 지우지 못한 파일이 있으면 그 목록을 돌려주고,
+// 나중에 '설정 → 앱'에서 지울 수 있도록 예전 삭제 프로그램과 제거 항목을 남깁니다.
+func RemoveLegacy(l *Legacy, newDir string) []string {
+	if !Overlaps(l.Dir, newDir) { // 같은 폴더에 새로 설치했다면 업데이트 단계에서 이미 정리됐습니다
+		moveExtraModels(l.Dir, newDir)
+		keep := filepath.Join(l.Dir, UninstallExe)
+		if failed := RemoveInstalled(l.Dir, l.Marker, keep); len(failed) > 0 {
+			_ = writeMarkerAs(l.Dir, LegacyAppID, l.Marker.Version, Union(failed, []string{UninstallExe}))
+			return failed
+		}
+		_ = os.Remove(keep)
+		_ = os.Remove(filepath.Join(l.Dir, MarkerName))
+		_ = os.Remove(l.Dir) // 비어 있을 때만 지워집니다
+	}
+	startMenu, desktop := shortcutPathsFor(LegacyDisplayName)
+	for _, lnk := range []string{startMenu, desktop} {
+		if lnk != "" {
+			_ = os.Remove(lnk)
+		}
+	}
+	_ = unregisterApp(LegacyAppID)
+	config, data := dataDirsFor(LegacyAppID)
+	for _, d := range []string{config, data} {
+		if d != "" && !Overlaps(d, l.Dir) && !Overlaps(d, newDir) && !OverlapsDataDirs(d) {
+			_ = os.RemoveAll(d)
+		}
+	}
+	return nil
+}
+
+// moveExtraModels 는 예전 설치의 engine\models 에서 새 설치에 없는 모델(내려받았거나 직접 넣은 것)을 옮깁니다.
+func moveExtraModels(oldDir, newDir string) {
+	src := filepath.Join(oldDir, "engine", "models")
+	dst := filepath.Join(newDir, "engine", "models")
+	if !isRealDir(filepath.Join(oldDir, "engine")) || !isRealDir(src) {
+		return
+	}
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		ext := strings.ToLower(filepath.Ext(e.Name()))
+		if !e.Type().IsRegular() || (ext != ".param" && ext != ".bin") {
+			continue
+		}
+		to := filepath.Join(dst, e.Name())
+		if _, err := os.Lstat(to); err == nil {
+			continue // 새 버전에 이미 들어 있는 모델
+		}
+		if os.MkdirAll(dst, 0o755) == nil {
+			_ = os.Rename(filepath.Join(src, e.Name()), to)
+		}
+	}
 }
 
 // DirSizeKB 는 폴더 크기를 KB 단위로 돌려줍니다 ('앱 및 기능'에 표시).

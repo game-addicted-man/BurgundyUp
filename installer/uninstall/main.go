@@ -1,4 +1,4 @@
-// AI 업스케일러 삭제 프로그램 (설치 폴더의 uninstall.exe).
+// BurgundyUp 삭제 프로그램 (설치 폴더의 uninstall.exe).
 // '설정 → 앱'에서 제거를 누르면 실행됩니다. 옵션: /S (조용히 삭제)
 package main
 
@@ -8,10 +8,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"aiupscaler/installer/internal/inst"
+	"burgundyup/installer/internal/inst"
 )
 
-const title = "AI 업스케일러 삭제"
+const title = "BurgundyUp 삭제"
 
 func main() {
 	inst.Init()
@@ -45,12 +45,12 @@ func main() {
 	m, err := inst.ReadMarker(dir)
 	if err != nil {
 		// 설치 정보가 없으면 엉뚱한 폴더일 수 있으니 아무것도 지우지 않습니다.
-		say("이 폴더에서 AI 업스케일러 설치 정보를 찾지 못했어요.\n"+dir, inst.MB_OK|inst.MB_ICONERROR)
+		say("이 폴더에서 BurgundyUp 설치 정보를 찾지 못했어요.\n"+dir, inst.MB_OK|inst.MB_ICONERROR)
 		os.Exit(1)
 	}
 
 	if !silent && inst.MessageBox(title,
-		"AI 업스케일러를 삭제할까요?\n\n프로그램, 바로 가기, 설정, 모델(내려받았거나 직접 넣은 것)이 모두 지워져요.\n업스케일한 결과 이미지는 지워지지 않아요.",
+		"BurgundyUp을 삭제할까요?\n\n프로그램, 바로 가기, 설정, 모델(내려받았거나 직접 넣은 것)이 모두 지워져요.\n업스케일한 결과 이미지는 지워지지 않아요.",
 		inst.MB_YESNO|inst.MB_ICONQUESTION|inst.MB_DEFBUTTON2) != inst.IDYES {
 		os.Exit(2)
 	}
@@ -59,10 +59,10 @@ func main() {
 	engine := filepath.Join(dir, "engine", "upscayl-bin.exe")
 	for inst.FileInUse(exe) || inst.FileInUse(engine) {
 		if silent {
-			fmt.Fprintln(os.Stderr, "AI 업스케일러가 실행 중이라 삭제할 수 없어요.")
+			fmt.Fprintln(os.Stderr, "BurgundyUp이 실행 중이라 삭제할 수 없어요.")
 			os.Exit(3)
 		}
-		if inst.MessageBox(title, "AI 업스케일러가 실행 중이에요.\n프로그램 창을 닫은 뒤 '다시 시도'를 눌러 주세요.",
+		if inst.MessageBox(title, "BurgundyUp이 실행 중이에요.\n프로그램 창을 닫은 뒤 '다시 시도'를 눌러 주세요.",
 			inst.MB_RETRYCANCEL|inst.MB_ICONWARNING) != inst.IDRETRY {
 			os.Exit(2)
 		}
@@ -78,7 +78,7 @@ func main() {
 		if len(shown) > 8 {
 			shown = append(append([]string(nil), shown[:8]...), fmt.Sprintf("… 외 %d개", len(failed)-8))
 		}
-		say("일부 파일을 지우지 못했어요.\nAI 업스케일러나 이 폴더를 쓰는 프로그램을 닫은 뒤, '설정 → 앱'에서 다시 삭제해 주세요.\n\n"+
+		say("일부 파일을 지우지 못했어요.\nBurgundyUp이나 이 폴더를 쓰는 프로그램을 닫은 뒤, '설정 → 앱'에서 다시 삭제해 주세요.\n\n"+
 			strings.Join(shown, "\n"), inst.MB_OK|inst.MB_ICONWARNING)
 		os.Exit(4)
 	}
@@ -103,7 +103,7 @@ func main() {
 	_ = os.Remove(filepath.Join(dir, inst.MarkerName))
 
 	if !silent {
-		inst.MessageBox(title, "AI 업스케일러를 삭제했어요.", inst.MB_OK|inst.MB_ICONINFO)
+		inst.MessageBox(title, "BurgundyUp을 삭제했어요.", inst.MB_OK|inst.MB_ICONINFO)
 	}
 	_ = inst.ScheduleCleanup(self, dir, dataDirs...)
 }

@@ -1,4 +1,4 @@
-AI 업스케일러에 함께 들어 있는 구성 요소
+BurgundyUp에 함께 들어 있는 구성 요소
 =====================================
 
 1. upscayl-bin (engine\upscayl-bin.exe)
@@ -30,5 +30,5 @@ AI 업스케일러에 함께 들어 있는 구성 요소
    golang.org/x/sys — BSD-3-Clause  → golang-x-sys-BSD-3-Clause.txt
    Go 표준 라이브러리 — BSD-3-Clause  → Go-BSD-3-Clause.txt
 
-7. SUIT 글꼴 (화면 글꼴, AI-Upscaler.exe 안에 포함 / 소스: ui/fonts) — SIL Open Font License 1.1  → SUIT-font-OFL.txt
+7. SUIT 글꼴 (화면 글꼴, BurgundyUp.exe 안에 포함 / 소스: ui/fonts) — SIL Open Font License 1.1  → SUIT-font-OFL.txt
    https://github.com/sun-typeface/SUIT
