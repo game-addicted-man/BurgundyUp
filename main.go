@@ -20,6 +20,9 @@ func main() {
 	}
 
 	platformInit()
+	if !*headless && !ensureSingleInstance() {
+		return
+	}
 
 	app, err := NewApp()
 	if err != nil {

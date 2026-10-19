@@ -3,10 +3,13 @@
 package main
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
@@ -40,6 +43,8 @@ var (
 	procILCreateFromPathW          = shell32.NewProc("ILCreateFromPathW")
 	procILFree                     = shell32.NewProc("ILFree")
 	procSHOpenFolderAndSelectItems = shell32.NewProc("SHOpenFolderAndSelectItems")
+	procGetWindowThreadProcessId   = user32.NewProc("GetWindowThreadProcessId")
+	procIsIconic                   = user32.NewProc("IsIconic")
 	procSetProcessDpiAwareness     = shcore.NewProc("SetProcessDpiAwareness")
 )
 
@@ -49,7 +54,9 @@ const (
 	spiGetWorkArea = 0x0030
 	mbOK           = 0x00000000
 	mbIconError    = 0x00000010
+	mbIconInfo     = 0x00000040
 	mbSetForegrnd  = 0x00010000
+	swRestore      = 9
 )
 
 // platformInit 은 고해상도(125%·150% 배율) 화면에서 흐려지지 않도록 DPI 인식을 켭니다.
@@ -85,23 +92,99 @@ func configureCmd(cmd *exec.Cmd) {
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true, CreationFlags: createNoWindow}
 }
 
-func showErrorBox(title, msg string) {
+func messageBox(title, msg string, icon uintptr) {
 	t, _ := windows.UTF16PtrFromString(title)
 	m, _ := windows.UTF16PtrFromString(msg)
-	procMessageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), mbOK|mbIconError|mbSetForegrnd)
+	procMessageBoxW.Call(0, uintptr(unsafe.Pointer(m)), uintptr(unsafe.Pointer(t)), mbOK|icon|mbSetForegrnd)
 }
 
+func showErrorBox(title, msg string) { messageBox(title, msg, mbIconError) }
+
+var instanceMutex windows.Handle
+
+// ensureSingleInstance 는 이미 실행 중이면 그 창을 앞으로 가져오고 false 를 돌려줍니다.
+// 두 개가 동시에 돌면 서로의 임시 파일을 지우거나 창 설정이 꼬일 수 있습니다.
+func ensureSingleInstance() bool {
+	name, _ := windows.UTF16PtrFromString(`Local\AI-Upscaler-SingleInstance`)
+	h, err := windows.CreateMutex(nil, false, name)
+	if err == nil {
+		instanceMutex = h
+		return true
+	}
+	if h != 0 {
+		windows.CloseHandle(h)
+	}
+	if err != windows.ERROR_ALREADY_EXISTS {
+		return true // 확인할 수 없으면 그냥 실행합니다
+	}
+	cls, _ := windows.UTF16PtrFromString("webview")
+	title, _ := windows.UTF16PtrFromString(appTitle)
+	// 아이콘을 두 번 눌렀다면 먼저 실행한 쪽이 아직 창을 만드는 중일 수 있어서 잠깐 기다립니다.
+	for i := 0; i < 15; i++ {
+		if w, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title))); w != 0 {
+			if iconic, _, _ := procIsIconic.Call(w); iconic != 0 {
+				procShowWindow.Call(w, swRestore) // 최소화돼 있을 때만 (최대화한 창은 그대로)
+			}
+			procSetForegroundWindow.Call(w)
+			return false
+		}
+		// 브라우저 모드로 실행 중이면 그 화면을 다시 엽니다.
+		if b, err := os.ReadFile(instanceURLPath()); err == nil {
+			if u := strings.TrimSpace(string(b)); strings.HasPrefix(u, "http://127.0.0.1:") && shellOpen(u) == nil {
+				return false
+			}
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	messageBox(appTitle, "AI 업스케일러가 이미 실행 중이에요.\n열려 있는 창이나 브라우저 탭을 확인해 주세요.", mbIconInfo)
+	return false
+}
+
+var shellErrors = map[uintptr]string{
+	0: "메모리가 부족해요", 2: "파일을 찾을 수 없어요", 3: "폴더를 찾을 수 없어요", 5: "접근이 거부됐어요",
+	8: "메모리가 부족해요", 26: "공유 위반이에요", 27: "파일 연결이 올바르지 않아요",
+	31: "이 파일을 열 프로그램이 없어요", 32: "필요한 구성 요소가 없어요",
+}
+
+// shellOpen 은 파일·폴더·주소를 기본 프로그램으로 엽니다.
+// ShellExecute 는 COM 이 준비된 스레드에서 불러야 하므로 전용 스레드에서 실행합니다.
 func shellOpen(target string) error {
-	verb, _ := windows.UTF16PtrFromString("open")
-	t, err := windows.UTF16PtrFromString(target)
-	if err != nil {
+	if target == "" {
+		return errors.New("열 대상이 없어요")
+	}
+	owner := ownerWindow()
+	errc := make(chan error, 1)
+	go func() {
+		runtime.LockOSThread()
+		defer runtime.UnlockOSThread()
+		hr, _, _ := procCoInitializeEx.Call(0, coinitApartmentThreaded|0x4) // COINIT_DISABLE_OLE1DDE
+		if int32(hr) >= 0 {
+			defer procCoUninitialize.Call()
+		}
+		verb, _ := windows.UTF16PtrFromString("open")
+		t, err := windows.UTF16PtrFromString(target)
+		if err != nil {
+			errc <- err
+			return
+		}
+		r, _, _ := procShellExecuteW.Call(owner, uintptr(unsafe.Pointer(verb)), uintptr(unsafe.Pointer(t)), 0, 0, swShowNormal)
+		if r <= 32 {
+			if msg, ok := shellErrors[r]; ok {
+				errc <- errors.New(msg)
+			} else {
+				errc <- fmt.Errorf("열 수 없어요 (코드 %d)", r)
+			}
+			return
+		}
+		errc <- nil
+	}()
+	select {
+	case err := <-errc:
 		return err
+	case <-time.After(30 * time.Second):
+		return nil
 	}
-	r, _, _ := procShellExecuteW.Call(ownerWindow(), uintptr(unsafe.Pointer(verb)), uintptr(unsafe.Pointer(t)), 0, 0, swShowNormal)
-	if r <= 32 {
-		return syscall.Errno(r)
-	}
-	return nil
 }
 
 func openPath(p string) error { return shellOpen(p) }
@@ -179,16 +262,31 @@ func onUIThread(f func()) {
 	d := uiDispatcher
 	uiMu.Unlock()
 	done := make(chan struct{})
-	if d != nil {
-		d(func() { safe(done) })
-	} else {
+	if d == nil {
 		go func() {
 			runtime.LockOSThread()
 			defer runtime.UnlockOSThread()
 			safe(done)
 		}()
+		<-done
+		return
 	}
-	<-done
+	// Dispatch 는 스레드 메시지(WM_APP)를 한 번 보내는데, 그 순간 창을 끌고 있는 등
+	// 다른 모달 루프가 돌고 있으면 메시지가 사라질 수 있습니다. 시작될 때까지 다시 깨웁니다.
+	started := make(chan struct{})
+	d(func() {
+		close(started)
+		safe(done)
+	})
+	for {
+		select {
+		case <-started:
+			<-done
+			return
+		case <-time.After(300 * time.Millisecond):
+			d(func() {})
+		}
+	}
 }
 
 func canPickDialogs() bool { return true }
@@ -286,6 +384,7 @@ func runWebView(a *App, marker string) bool {
 	wv.SetSize(int(mw), int(mh), webview2.HintMin)
 	wv.Navigate(a.url)
 	wv.Run()
+	_ = os.Remove(marker) // 정상적으로 닫혔으면 다음에도 앱 창으로 엽니다
 
 	uiMu.Lock()
 	uiDispatcher = nil
@@ -298,10 +397,16 @@ func runWebView(a *App, marker string) bool {
 func destroyStrayWindow() {
 	cls, _ := windows.UTF16PtrFromString("webview")
 	title, _ := windows.UTF16PtrFromString(appTitle)
-	if h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title))); h != 0 {
-		procShowWindow.Call(h, 0)
-		procDestroyWindow.Call(h)
+	h, _, _ := procFindWindowW.Call(uintptr(unsafe.Pointer(cls)), uintptr(unsafe.Pointer(title)))
+	if h == 0 {
+		return
 	}
+	// 다른 프로그램(또는 다른 실행)의 창은 건드리지 않습니다.
+	if tid, _, _ := procGetWindowThreadProcessId.Call(h, 0); uint32(tid) != windows.GetCurrentThreadId() {
+		return
+	}
+	procShowWindow.Call(h, 0)
+	procDestroyWindow.Call(h)
 }
 
 func findBrowserExe() string {
@@ -325,6 +430,9 @@ func findBrowserExe() string {
 }
 
 func runBrowser(a *App) {
+	urlFile := filepath.Join(a.DataDir, "instance.url")
+	_ = os.WriteFile(urlFile, []byte(a.url), 0o600)
+	defer os.Remove(urlFile)
 	var procDone chan struct{}
 	if exe := findBrowserExe(); exe != "" {
 		cmd := exec.Command(exe,

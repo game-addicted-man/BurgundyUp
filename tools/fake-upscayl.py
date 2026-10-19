@@ -41,7 +41,12 @@ tiles = 12
 delay = 0.25 if 'slow' in base else 0.06
 if '-x' in flags: delay *= 2
 for t in range(tiles):
-    err(f"{t / tiles * 100:.2f}%"); time.sleep(delay)
+    line = f"{t / tiles * 100:.2f}%"
+    if 'comma' in base: line = line.replace('.', ',')  # 쉼표 소수점 지역 설정 흉내
+    err(line); time.sleep(delay)
+if 'nowrite' in base:  # 저장 실패 흉내: 반쪽 파일을 남기고 오류만 찍고 0 으로 끝남 (실제 엔진과 같음)
+    open(out, 'wb').write(b'\x89PNG\r\n\x1a\n')
+    err(f"🚨 Error: Couldn't write the image {out}"); sys.exit(0)
 w, h = im.size
 mode = 'RGBA' if im.mode in ('RGBA', 'LA', 'P') else 'RGB'
 big = im.convert(mode).resize((w * z, h * z), Image.LANCZOS).filter(ImageFilter.UnsharpMask(2, 120, 2))

@@ -16,6 +16,8 @@ import (
 
 func platformInit() {}
 
+func ensureSingleInstance() bool { return true }
+
 func picturesDir() string {
 	if home, err := os.UserHomeDir(); err == nil {
 		return filepath.Join(home, "Pictures")

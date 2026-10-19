@@ -16,11 +16,11 @@ import (
 )
 
 const (
-	AppID        = "AI-Upscaler"      // 폴더·레지스트리에 쓰는 이름
-	DisplayName  = "AI 업스케일러"         // 화면에 보이는 이름
-	AppExe       = "AI-Upscaler.exe"  // 프로그램
-	UninstallExe = "uninstall.exe"    // 삭제 프로그램
-	MarkerName   = "install.json"     // 설치 정보 (삭제할 때 우리 폴더가 맞는지 확인)
+	AppID        = "AI-Upscaler"     // 폴더·레지스트리에 쓰는 이름
+	DisplayName  = "AI 업스케일러"        // 화면에 보이는 이름
+	AppExe       = "AI-Upscaler.exe" // 프로그램
+	UninstallExe = "uninstall.exe"   // 삭제 프로그램
+	MarkerName   = "install.json"    // 설치 정보 (삭제할 때 우리 폴더가 맞는지 확인)
 	Publisher    = "AI-Upscaler"
 	ShortcutDesc = "저해상도 이미지를 AI로 선명하게 키워요"
 )

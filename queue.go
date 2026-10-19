@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -13,6 +14,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 )
 
 // Item 은 작업 목록의 이미지 한 장입니다.
@@ -457,7 +459,7 @@ func (a *App) upscaleOne(ctx context.Context, it *Item, s Settings, onProgress f
 			return fail(fmt.Sprintf("결과 크기(%d×%d)가 WebP 한계(16383픽셀)를 넘어요. 저장 형식을 PNG나 JPG로 바꾸거나 배율을 낮춰 주세요.", ow, oh))
 		case s.Format == "jpg" && (ow > 65500 || oh > 65500):
 			return fail(fmt.Sprintf("결과 크기(%d×%d)가 JPG 한계를 넘어요. PNG로 저장하거나 배율을 낮춰 주세요.", ow, oh))
-		case mp > 600:
+		case mp > 500: // 엔진이 4채널(투명) 이미지를 32비트 크기로 계산해서 약 537MP 를 넘으면 저장에 실패합니다
 			return fail(fmt.Sprintf("이미지가 너무 커요 (처리 중 %.0f메가픽셀). 배율을 낮추거나 더 작은 이미지를 써 주세요.", mp))
 		}
 	}
@@ -484,6 +486,14 @@ func (a *App) upscaleOne(ctx context.Context, it *Item, s Settings, onProgress f
 	base := strings.TrimSuffix(it.Name, filepath.Ext(it.Name))
 	outName := fmt.Sprintf("%s_upscaled_%dx_%s.%s", sanitizeFileName(base), s.Scale, modelShort(s.Model), s.Format)
 	outPath := uniquePath(filepath.Join(dir, outName))
+	tmpDir := filepath.Join(a.DataDir, "tmp")
+	_ = os.MkdirAll(tmpDir, 0o755)
+	// 엔진은 임시 이름으로 저장하고, 끝까지 성공했을 때만 진짜 이름으로 바꿉니다.
+	// (멈추거나 실패해도 반쪽짜리 파일이 결과처럼 남지 않게. 엔진은 맨 끝 확장자로 형식을 정합니다.)
+	partOut := strings.TrimSuffix(outPath, "."+s.Format) + ".aiup-part." + s.Format
+	if tooLongForEngine(partOut) {
+		partOut = filepath.Join(tmpDir, it.ID+".aiup-part."+s.Format)
+	}
 
 	comp := 0
 	if s.Format == "webp" {
@@ -492,8 +502,6 @@ func (a *App) upscaleOne(ctx context.Context, it *Item, s Settings, onProgress f
 	input := it.Src
 	if o := jpegOrientation(it.Src); o > 1 {
 		// 휴대폰 사진의 회전 정보를 반영한 사본을 만들어 엔진에 넘깁니다.
-		tmpDir := filepath.Join(a.DataDir, "tmp")
-		_ = os.MkdirAll(tmpDir, 0o755)
 		upright := filepath.Join(tmpDir, "upright-"+it.ID+".png")
 		if err := writeUprightCopy(it.Src, upright, o); err == nil {
 			input = upright
@@ -502,31 +510,127 @@ func (a *App) upscaleOne(ctx context.Context, it *Item, s Settings, onProgress f
 			logf("회전 사본 만들기 실패 (%s): %v", it.Src, err)
 		}
 	}
+	if tooLongForEngine(input) {
+		// 엔진은 260자보다 긴 경로를 열지 못하므로 짧은 임시 경로로 복사해서 넘깁니다.
+		short := filepath.Join(tmpDir, "in-"+it.ID+strings.ToLower(filepath.Ext(input)))
+		if err := copyFile(input, short); err != nil {
+			return fail("경로가 너무 길어서 원본을 읽지 못했어요. 파일을 더 짧은 경로의 폴더로 옮겨 주세요.")
+		}
+		defer os.Remove(short)
+		input = short
+	}
 	job := EngineJob{
-		Input: input, Output: outPath, ModelFile: file, ModelScale: mscale, TargetScale: s.Scale,
+		Input: input, Output: partOut, ModelFile: file, ModelScale: mscale, TargetScale: s.Scale,
 		Format: s.Format, Compression: comp, GPU: s.GPU, Tile: s.Tile, TTA: s.TTA,
 	}
 	res, runErr := a.runEngine(ctx, job, onProgress)
 	if ctx.Err() != nil {
-		_ = os.Remove(outPath)
+		removeRetry(partOut)
 		return upscaleResult{err: ctx.Err()}
 	}
-	st, statErr := os.Stat(outPath)
-	ok := statErr == nil && st.Size() > 0
+	st, statErr := os.Stat(partOut)
+	ok := statErr == nil && st.Size() > 0 && !reportsWriteError(res.Lines)
 	var ow, oh int
 	if ok {
-		ow, oh = imageSize(outPath)
+		ow, oh = imageSize(partOut)
 		if runErr != nil {
 			// 저장 후 정리 단계에서 엔진이 죽는 경우가 있어서, 결과 크기가 맞으면 성공으로 봅니다.
 			ok = it.W > 0 && ow == it.W*s.Scale && oh == it.H*s.Scale
 		}
 	}
 	if !ok {
-		_ = os.Remove(outPath)
+		removeRetry(partOut)
 		msg, detail := friendlyError(res.Lines, runErr)
 		return upscaleResult{err: errors.New(msg), msg: msg, detail: detail}
 	}
+	outPath = uniquePath(outPath) // 처리하는 동안 같은 이름의 파일이 생겼을 수도 있어서 한 번 더 확인
+	if err := moveFile(partOut, outPath); err != nil {
+		removeRetry(partOut)
+		return fail("결과 파일을 저장하지 못했어요: " + err.Error())
+	}
+	if st2, err := os.Stat(outPath); err == nil {
+		st = st2
+	}
 	return upscaleResult{out: outPath, outW: ow, outH: oh, outSize: st.Size(), note: note}
+}
+
+// tooLongForEngine 은 엔진(_wfopen·WIC)이 열 수 없는 긴 경로인지 확인합니다 (MAX_PATH 260, 여유를 둠).
+func tooLongForEngine(p string) bool {
+	return len(utf16.Encode([]rune(p))) >= 240
+}
+
+func reportsWriteError(lines []string) bool {
+	for _, l := range lines {
+		if strings.Contains(strings.ToLower(l), "couldn't write the image") {
+			return true
+		}
+	}
+	return false
+}
+
+// removeRetry 는 백신·색인 프로그램이 잠깐 파일을 잡고 있을 때를 대비해 몇 번 다시 지워 봅니다.
+func removeRetry(p string) {
+	for i := 0; i < 5; i++ {
+		if err := os.Remove(p); err == nil || os.IsNotExist(err) {
+			return
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+}
+
+// moveFile 은 이름을 바꾸고, 드라이브가 달라서 안 되면 복사한 뒤 원본을 지웁니다.
+// 이미 있는 파일은 절대 덮어쓰지 않습니다.
+func moveFile(src, dst string) error {
+	if _, err := os.Lstat(dst); err == nil {
+		return fmt.Errorf("같은 이름의 파일이 이미 있어요: %s", filepath.Base(dst))
+	}
+	if err := os.Rename(src, dst); err == nil {
+		return nil
+	}
+	if err := copyNew(src, dst); err != nil {
+		return err
+	}
+	removeRetry(src)
+	return nil
+}
+
+// copyNew 는 dst 가 없을 때만 새로 만들어 복사하고, 실패하면 만들던 파일을 지웁니다.
+func copyNew(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o644)
+	if err != nil {
+		return err
+	}
+	if _, err = io.Copy(out, in); err == nil {
+		err = out.Close()
+	} else {
+		out.Close()
+	}
+	if err != nil {
+		os.Remove(dst)
+	}
+	return err
+}
+
+func copyFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		out.Close()
+		return err
+	}
+	return out.Close()
 }
 
 func dirWritable(dir string) bool {

@@ -95,7 +95,9 @@ const (
 func pickImageFiles() ([]string, error) {
 	var paths []string
 	var err error
-	onUIThread(func() { paths, err = showFileDialog(dialogImages, "업스케일할 이미지를 고르세요 (여러 장 선택 가능)", "") })
+	onUIThread(func() {
+		paths, err = showFileDialog(dialogImages, "업스케일할 이미지를 고르세요 (여러 장 선택 가능)", "")
+	})
 	return paths, err
 }
 

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -16,6 +17,18 @@ import (
 
 //go:embed ui
 var uiFiles embed.FS
+
+func init() {
+	// Windows 에서는 MIME 형식을 레지스트리에서 읽는데, 잘못 등록된 PC 에서는 .css 가 엉뚱한 형식으로
+	// 전달돼 화면 스타일이 통째로 빠질 수 있습니다. 화면 파일 형식은 직접 정해 둡니다.
+	for ext, typ := range map[string]string{
+		".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8",
+		".js": "text/javascript; charset=utf-8", ".svg": "image/svg+xml",
+		".woff2": "font/woff2", ".json": "application/json", ".png": "image/png",
+	} {
+		_ = mime.AddExtensionType(ext, typ)
+	}
+}
 
 // 화면에서 열 수 있는 외부 링크 (그 외 주소는 열지 않습니다)
 var externalLinks = map[string]string{
@@ -399,6 +412,10 @@ func (a *App) apiOpen(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, 404, "목록에 없는 이미지예요")
 		return
 	}
+	if (req.Target == "file" || req.Target == "folder") && it.Out == "" {
+		writeErr(w, 400, "아직 결과 파일이 없어요")
+		return
+	}
 	var err error
 	switch req.Target {
 	case "file":
@@ -498,9 +515,7 @@ func (a *App) apiModelRescan(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *App) apiProbe(w http.ResponseWriter, r *http.Request) {
-	if a.Engine().State != "checking" {
-		go a.ProbeEngine()
-	}
+	go a.ProbeEngine() // 이미 점검 중이면 ProbeEngine 이 알아서 건너뜁니다
 	writeJSON(w, 200, map[string]any{"ok": true})
 }
 

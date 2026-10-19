@@ -64,7 +64,7 @@ func engineArgs(j EngineJob) []string {
 }
 
 var (
-	progressRe = regexp.MustCompile(`^\s*(\d{1,3}(?:\.\d+)?)\s*%`)
+	progressRe = regexp.MustCompile(`^\s*(\d{1,3}(?:[.,]\d+)?)\s*%`) // 쉼표 소수점 지역 설정도 처리
 	gpuLineRe  = regexp.MustCompile(`^\s*\[(\d+)\s+(.+?)\]\s+queueC=`)
 )
 
@@ -111,7 +111,7 @@ func (a *App) runEngine(ctx context.Context, j EngineJob, onProgress func(float6
 				continue
 			}
 			if m := progressRe.FindStringSubmatch(line); m != nil {
-				if v, err := strconv.ParseFloat(m[1], 64); err == nil && onProgress != nil {
+				if v, err := strconv.ParseFloat(strings.Replace(m[1], ",", ".", 1), 64); err == nil && onProgress != nil {
 					onProgress(v)
 				}
 				continue
@@ -236,7 +236,7 @@ func friendlyError(lines []string, runErr error) (string, string) {
 	if last := lastMeaningful(lines); last != "" {
 		return "업스케일에 실패했어요: " + last, detail
 	}
-	return "업스케일에 실패했어요. (자세한 내용은 기록 파일을 확인해 주세요)", detail
+	return "업스케일에 실패했어요. 이미지가 손상되었거나 저장 폴더에 쓸 수 없을 수 있어요. (자세한 내용은 고급 설정 → 기록 폴더의 app.log)", detail
 }
 
 func lastLines(lines []string, n int) string {
@@ -270,7 +270,20 @@ type EngineStatus struct {
 
 // ProbeEngine 은 작은 이미지를 한 번 업스케일해서 엔진과 GPU 가 동작하는지 확인합니다.
 func (a *App) ProbeEngine() {
-	a.setEngine(EngineStatus{State: "checking", Message: "엔진과 그래픽카드를 확인하는 중..."})
+	// 동시에 두 번 점검하지 않도록 상태를 잠근 채로 확인하고 바꿉니다.
+	a.engMu.Lock()
+	if a.probing {
+		a.engMu.Unlock()
+		return
+	}
+	a.probing = true
+	a.eng = EngineStatus{State: "checking", Message: "엔진과 그래픽카드를 확인하는 중..."}
+	a.engMu.Unlock()
+	defer func() {
+		a.engMu.Lock()
+		a.probing = false
+		a.engMu.Unlock()
+	}()
 	if _, err := os.Stat(a.EnginePath); err != nil {
 		a.setEngine(EngineStatus{State: "missing",
 			Message: "엔진 파일이 없어요: " + a.EnginePath + "\n프로그램 폴더 안의 engine 폴더를 지우거나 옮기지 마세요."})
@@ -295,9 +308,14 @@ func (a *App) ProbeEngine() {
 	}
 	dir := filepath.Join(a.DataDir, "tmp")
 	_ = os.MkdirAll(dir, 0o755)
-	in := filepath.Join(dir, "probe.png")
-	out := filepath.Join(dir, "probe_out.png")
-	_ = os.Remove(out)
+	tmp, err := os.CreateTemp(dir, "probe-*.png")
+	if err != nil {
+		a.setEngine(EngineStatus{State: "error", Message: "임시 파일을 만들 수 없어요: " + err.Error()})
+		return
+	}
+	in := tmp.Name()
+	tmp.Close()
+	out := strings.TrimSuffix(in, ".png") + "_out.png"
 	if err := writeProbeImage(in); err != nil {
 		a.setEngine(EngineStatus{State: "error", Message: "임시 파일을 만들 수 없어요: " + err.Error()})
 		return

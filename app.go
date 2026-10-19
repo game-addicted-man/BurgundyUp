@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"runtime/debug"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -41,8 +42,9 @@ type App struct {
 	queue    *Queue
 	dl       *Downloader
 
-	engMu sync.Mutex
-	eng   EngineStatus
+	engMu   sync.Mutex
+	eng     EngineStatus
+	probing bool
 
 	token    string
 	url      string
@@ -97,20 +99,7 @@ func NewApp() (*App, error) {
 	}
 	a.ModelsDir = filepath.Join(a.EngineDir, "models")
 
-	if d := os.Getenv("AIUP_DATADIR"); d != "" {
-		a.ConfigDir, a.DataDir = d, d
-	} else {
-		cfg, err := os.UserConfigDir()
-		if err != nil {
-			cfg = a.BaseDir
-		}
-		cache, err := os.UserCacheDir()
-		if err != nil {
-			cache = cfg
-		}
-		a.ConfigDir = filepath.Join(cfg, appName)
-		a.DataDir = filepath.Join(cache, appName)
-	}
+	a.ConfigDir, a.DataDir = appDirs(a.BaseDir)
 	for _, d := range []string{a.ConfigDir, a.DataDir, filepath.Join(a.DataDir, "logs")} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			return nil, fmt.Errorf("데이터 폴더를 만들 수 없어요: %s\n%v", d, err)
@@ -133,6 +122,7 @@ func NewApp() (*App, error) {
 	a.UploadDir = filepath.Join(a.DataDir, "uploads")
 	_ = os.RemoveAll(a.UploadDir)
 	_ = os.RemoveAll(filepath.Join(a.DataDir, "tmp"))
+	_ = os.Remove(filepath.Join(a.DataDir, "instance.url")) // 지난번에 비정상 종료하며 남은 주소
 	if err := os.MkdirAll(a.UploadDir, 0o755); err != nil {
 		return nil, err
 	}
@@ -143,6 +133,29 @@ func NewApp() (*App, error) {
 	a.queue = NewQueue(a)
 	a.eng = EngineStatus{State: "checking", Message: "엔진을 확인하는 중..."}
 	return a, nil
+}
+
+// appDirs 는 설정 폴더(%APPDATA%\AI-Upscaler)와 기록·임시 폴더(%LOCALAPPDATA%\AI-Upscaler)를 돌려줍니다.
+func appDirs(base string) (config, data string) {
+	if d := os.Getenv("AIUP_DATADIR"); d != "" {
+		return d, d
+	}
+	cfg, err := os.UserConfigDir()
+	if err != nil {
+		cfg = base
+	}
+	cache, err := os.UserCacheDir()
+	if err != nil {
+		cache = cfg
+	}
+	return filepath.Join(cfg, appName), filepath.Join(cache, appName)
+}
+
+// instanceURLPath 는 브라우저 모드로 실행 중일 때 화면 주소를 적어 두는 파일입니다.
+// 프로그램을 한 번 더 실행하면 이 주소를 다시 열어 줍니다.
+func instanceURLPath() string {
+	_, data := appDirs(findBaseDir())
+	return filepath.Join(data, "instance.url")
 }
 
 func looksLikeZipTemp(dir string) bool {
@@ -229,6 +242,8 @@ func openLog(path string) {
 	f, err := os.OpenFile(path, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err == nil {
 		logFile = f
+		// 창 프로그램(-H windowsgui)은 오류 출력이 사라지므로, 프로그램이 죽을 때의 내용을 기록 파일에 남깁니다.
+		_ = debug.SetCrashOutput(f, debug.CrashOptions{})
 	}
 }
 
