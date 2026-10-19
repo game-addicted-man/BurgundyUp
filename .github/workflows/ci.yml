@@ -1,0 +1,29 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false   # 외부 의존성이 third_party 에 들어 있어서 go.sum 이 없어요
+      - name: 검사와 테스트
+        run: |
+          go vet ./...
+          GOOS=windows go vet ./...
+          go test ./...
+      - name: Windows 용 빌드 확인
+        env:
+          GOOS: windows
+          GOARCH: amd64
+          CGO_ENABLED: "0"
+        run: |
+          go build -trimpath -ldflags "-H windowsgui -s -w" -o AI-Upscaler.exe .
+          go build -trimpath -ldflags "-H windowsgui -s -w" -o uninstall.exe ./installer/uninstall

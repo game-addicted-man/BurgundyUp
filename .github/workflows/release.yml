@@ -1,0 +1,42 @@
+name: Release
+
+# v1.2.3 같은 태그를 올리면 설치 파일과 압축판을 만들어 GitHub Releases 에 올립니다.
+# Actions 탭에서 직접 실행하면 결과물을 Artifacts 로만 받을 수 있어요.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: false   # 외부 의존성이 third_party 에 들어 있어서 go.sum 이 없어요
+      - name: 설치 파일과 압축판 만들기
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            go run ./tools/release -version "${GITHUB_REF_NAME#v}"
+          else
+            go run ./tools/release
+          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AI-Upscaler
+          path: |
+            dist/*.exe
+            dist/*.zip
+            dist/SHA256SUMS.txt
+      - uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/v')
+        with:
+          files: |
+            dist/AI-Upscaler-Setup-*.exe
+            dist/AI-Upscaler-*-portable.zip
+            dist/SHA256SUMS.txt

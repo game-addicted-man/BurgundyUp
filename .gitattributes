@@ -1,2 +1,13 @@
-# Auto detect text files and perform LF normalization
 * text=auto
+*.go   text eol=lf
+*.js   text eol=lf
+*.css  text eol=lf
+*.html text eol=lf
+*.md   text eol=lf
+*.sh   text eol=lf
+*.yml  text eol=lf
+*.bat  text eol=crlf
+*.woff2 binary
+*.ico   binary
+*.png   binary
+*.syso  binary

@@ -1,0 +1,16 @@
+# 빌드 결과 (build.bat → dist/)
+/dist/
+/installer/setup/payload/*.zip
+*.exe
+
+# 업스케일 엔진과 기본 모델 (빌드할 때 tools/fetch-engine 이 GitHub 에서 받아요)
+/engine/
+
+# 테스트·임시 파일
+/tools/fake-engine.log
+*.part
+
+# 운영체제
+Thumbs.db
+desktop.ini
+.DS_Store

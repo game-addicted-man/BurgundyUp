@@ -1,0 +1,34 @@
+AI 업스케일러에 함께 들어 있는 구성 요소
+=====================================
+
+1. upscayl-bin (engine\upscayl-bin.exe)
+   Upscayl 프로젝트의 업스케일 엔진 (Real-ESRGAN-ncnn-vulkan 기반)
+   라이선스: GNU AGPL-3.0  → upscayl-bin-AGPL-3.0.txt
+   소스 코드: https://github.com/upscayl/upscayl-ncnn  (릴리스 태그 20251207-174704)
+   이 프로그램은 upscayl-bin 을 고치지 않고 별도 프로그램으로 실행만 합니다.
+
+2. ncnn (upscayl-bin 안에 포함)
+   라이선스: BSD-3-Clause  → ncnn-BSD-3-Clause.txt
+   https://github.com/Tencent/ncnn
+
+3. Real-ESRGAN 모델 (engine\models\realesrgan-*, realesr-animevideov3-*)
+   라이선스: BSD-3-Clause  → Real-ESRGAN-BSD-3-Clause.txt
+   https://github.com/xinntao/Real-ESRGAN  (모델 파일은 v0.2.5.0 ncnn 릴리스에서 가져옴)
+   참고: Upscayl의 'Upscayl Standard' 모델은 realesrgan-x4plus 와 같은 파일입니다.
+
+4. Upscayl Lite 모델 (engine\models\upscayl-lite-4x) 과 '모델 더 받기'로 받는 추가 모델
+   출처: https://github.com/upscayl/upscayl (resources/models, 커밋 a00d55fee90e0f9435d5eaa86e76700df8199af8)
+   추가 모델(High Fidelity, UltraSharp, Remacri, UltraMix)은 각 제작자의 라이선스를 따르며,
+   일부는 비상업적 용도로만 사용할 수 있습니다.
+
+5. vcomp140.dll (engine\vcomp140.dll)
+   Microsoft Visual C++ 재배포 가능 패키지의 OpenMP 런타임. Upscayl 앱과 같은 파일입니다.
+
+6. go-webview2  — MIT  → go-webview2-MIT.txt  (https://github.com/jchv/go-webview2)
+   go-winloader — ISC  → go-winloader-LICENSE.txt  (https://github.com/jchv/go-winloader)
+   WebView2 SDK 로더(go-webview2 안에 포함) — BSD-3-Clause  → WebView2-SDK-BSD-3-Clause.txt
+   golang.org/x/sys — BSD-3-Clause  → golang-x-sys-BSD-3-Clause.txt
+   Go 표준 라이브러리 — BSD-3-Clause  → Go-BSD-3-Clause.txt
+
+7. SUIT 글꼴 (화면 글꼴, AI-Upscaler.exe 안에 포함 / 소스: ui/fonts) — SIL Open Font License 1.1  → SUIT-font-OFL.txt
+   https://github.com/sun-typeface/SUIT

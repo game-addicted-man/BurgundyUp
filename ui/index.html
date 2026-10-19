@@ -1,0 +1,270 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 업스케일러</title>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/assets/app.css">
+<script>window.AIUP = { token: "__TOKEN__", version: "__VERSION__" };</script>
+<script src="/assets/app.js" defer></script>
+</head>
+<body>
+<div class="app">
+
+  <aside class="side">
+    <header class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#2a2b2f"/>
+        <path d="M16 7h-4v2h-2v2H8v4H7v2h1v4h2v2h2v2h4z" fill="#d9d6cf"/>
+        <path d="M16 7a9 9 0 0 1 0 18z" fill="#d9d6cf"/>
+        <rect x="15.2" y="4" width="1.6" height="24" rx=".8" fill="#f0a43a"/>
+      </svg>
+      <h1>AI 업스케일러</h1>
+    </header>
+
+    <div class="side-scroll">
+      <section class="group" aria-labelledby="h-images">
+        <h2 id="h-images">이미지</h2>
+        <div class="btn-row">
+          <button class="btn" id="pickImages" type="button">이미지 고르기</button>
+          <button class="btn" id="pickFolder" type="button">폴더 고르기</button>
+        </div>
+        <p class="hint">창에 끌어다 놓거나 Ctrl+V로 붙여넣어도 돼요.</p>
+      </section>
+
+      <section class="group" aria-labelledby="h-model">
+        <h2 id="h-model">AI 모델</h2>
+        <div class="model-list" id="modelList" role="radiogroup" aria-labelledby="h-model"></div>
+        <button class="link-btn" id="moreModels" type="button">모델 더 받기</button>
+      </section>
+
+      <section class="group" aria-labelledby="h-scale">
+        <h2 id="h-scale">배율</h2>
+        <div class="seg seg-scale" id="scaleSeg" role="radiogroup" aria-labelledby="h-scale">
+          <button type="button" role="radio" data-scale="2"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1h5v5H1zM8 1h5v5H8zM1 8h5v5H1zM8 8h5v5H8z"/></svg><span>2배</span></button>
+          <button type="button" role="radio" data-scale="3"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1h3v3H1zM5.5 1h3v3h-3zM10 1h3v3h-3zM1 5.5h3v3H1zM5.5 5.5h3v3h-3zM10 5.5h3v3h-3zM1 10h3v3H1zM5.5 10h3v3h-3zM10 10h3v3h-3z"/></svg><span>3배</span></button>
+          <button type="button" role="radio" data-scale="4"><svg viewBox="0 0 14 14" aria-hidden="true"><path d="M1 1h2v2H1zM4.67 1h2v2h-2zM8.33 1h2v2h-2zM12 1h1v2h-1zM1 4.67h2v2H1zM4.67 4.67h2v2h-2zM8.33 4.67h2v2h-2zM12 4.67h1v2h-1zM1 8.33h2v2H1zM4.67 8.33h2v2h-2zM8.33 8.33h2v2h-2zM12 8.33h1v2h-1zM1 12h2v1H1zM4.67 12h2v1h-2zM8.33 12h2v1h-2zM12 12h1v1h-1z"/></svg><span>4배</span></button>
+        </div>
+        <p class="size-preview" id="sizePreview"></p>
+      </section>
+
+      <section class="group" aria-labelledby="h-save">
+        <h2 id="h-save">저장</h2>
+        <div class="field">
+          <span class="field-label" id="l-format">형식</span>
+          <div class="seg" id="formatSeg" role="radiogroup" aria-labelledby="l-format">
+            <button type="button" role="radio" data-format="png">PNG</button>
+            <button type="button" role="radio" data-format="jpg">JPG</button>
+            <button type="button" role="radio" data-format="webp">WebP</button>
+          </div>
+          <p class="hint" id="formatHint"></p>
+        </div>
+        <div class="field" id="webpRow" hidden>
+          <label class="field-label" for="webpQuality">WebP 품질 <output id="webpOut"></output></label>
+          <input type="range" id="webpQuality" min="10" max="100" step="10">
+        </div>
+        <div class="field">
+          <span class="field-label">위치</span>
+          <label class="radio"><input type="radio" name="outmode" value="same"><span>원본과 같은 폴더</span></label>
+          <label class="radio"><input type="radio" name="outmode" value="custom"><span>지정한 폴더</span></label>
+          <div class="out-dir">
+            <p class="out-caption" id="outCaption"></p>
+            <p class="out-path" id="outPath" title=""></p>
+            <div class="btn-row btn-row-tight">
+              <button class="btn btn-small" id="changeOut" type="button">바꾸기</button>
+              <button class="btn btn-small" id="openOut" type="button">폴더 열기</button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <footer class="action">
+      <div class="run" id="runInfo" hidden>
+        <div class="run-top"><span id="runCount"></span><span class="run-pct" id="runPct"></span></div>
+        <div class="meter"><span id="runBar"></span></div>
+        <div class="run-bottom"><span class="run-file" id="runFile"></span><span id="runEta"></span></div>
+      </div>
+      <button class="btn-primary" id="startBtn" type="button" disabled>업스케일 시작</button>
+      <div class="status-line">
+        <button class="engine-status" id="engineStatus" type="button" title="엔진 상태">
+          <span class="dot" aria-hidden="true"></span><span class="engine-text" id="engineText">엔진 확인 중</span>
+        </button>
+        <button class="icon-btn" id="openSettings" type="button" aria-label="고급 설정" title="고급 설정">
+          <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M8.3 2h3.4l.5 2.2 1.6.9 2.1-.8 1.7 2.9-1.7 1.5v1.8l1.7 1.5-1.7 2.9-2.1-.8-1.6.9-.5 2.2H8.3l-.5-2.2-1.6-.9-2.1.8-1.7-2.9 1.7-1.5V9.2L2.4 7.7l1.7-2.9 2.1.8 1.6-.9z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><circle cx="10" cy="10" r="2.6" fill="none" stroke="currentColor" stroke-width="1.4"/></svg>
+        </button>
+      </div>
+    </footer>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="banner" id="banner" hidden>
+      <p class="banner-text" id="bannerText"></p>
+      <div class="banner-actions">
+        <button class="btn btn-small" id="bannerRetry" type="button">다시 확인</button>
+        <button class="btn btn-small" id="bannerHelp" type="button">드라이버 안내</button>
+      </div>
+    </div>
+
+    <section class="empty" id="empty">
+      <div class="empty-inner">
+        <svg class="hero-art" viewBox="0 0 240 150" aria-hidden="true">
+          <defs><clipPath id="heroRight"><rect x="120" y="0" width="120" height="150"/></clipPath><clipPath id="heroFrame"><rect x="0" y="0" width="240" height="150" rx="10"/></clipPath></defs>
+          <g clip-path="url(#heroFrame)">
+            <rect width="240" height="150" fill="#26272b"/>
+            <g shape-rendering="crispEdges"><rect x="36" y="72" width="12" height="12" fill="#41434b"/><rect x="48" y="72" width="12" height="12" fill="#41434b"/><rect x="24" y="84" width="12" height="12" fill="#41434b"/><rect x="36" y="84" width="12" height="12" fill="#41434b"/><rect x="48" y="84" width="12" height="12" fill="#41434b"/><rect x="60" y="84" width="12" height="12" fill="#41434b"/><rect x="72" y="84" width="12" height="12" fill="#41434b"/><rect x="96" y="84" width="12" height="12" fill="#41434b"/><rect x="108" y="84" width="12" height="12" fill="#41434b"/><rect x="0" y="96" width="12" height="12" fill="#41434b"/><rect x="12" y="96" width="12" height="12" fill="#41434b"/><rect x="24" y="96" width="12" height="12" fill="#41434b"/><rect x="36" y="96" width="12" height="12" fill="#41434b"/><rect x="48" y="96" width="12" height="12" fill="#5d606b"/><rect x="60" y="96" width="12" height="12" fill="#5d606b"/><rect x="72" y="96" width="12" height="12" fill="#41434b"/><rect x="84" y="96" width="12" height="12" fill="#41434b"/><rect x="96" y="96" width="12" height="12" fill="#41434b"/><rect x="108" y="96" width="12" height="12" fill="#41434b"/><rect x="0" y="108" width="12" height="12" fill="#41434b"/><rect x="12" y="108" width="12" height="12" fill="#41434b"/><rect x="24" y="108" width="12" height="12" fill="#5d606b"/><rect x="36" y="108" width="12" height="12" fill="#5d606b"/><rect x="48" y="108" width="12" height="12" fill="#5d606b"/><rect x="60" y="108" width="12" height="12" fill="#5d606b"/><rect x="72" y="108" width="12" height="12" fill="#5d606b"/><rect x="84" y="108" width="12" height="12" fill="#41434b"/><rect x="96" y="108" width="12" height="12" fill="#41434b"/><rect x="108" y="108" width="12" height="12" fill="#41434b"/><rect x="0" y="120" width="12" height="12" fill="#5d606b"/><rect x="12" y="120" width="12" height="12" fill="#5d606b"/><rect x="24" y="120" width="12" height="12" fill="#5d606b"/><rect x="36" y="120" width="12" height="12" fill="#5d606b"/><rect x="48" y="120" width="12" height="12" fill="#5d606b"/><rect x="60" y="120" width="12" height="12" fill="#5d606b"/><rect x="72" y="120" width="12" height="12" fill="#5d606b"/><rect x="84" y="120" width="12" height="12" fill="#5d606b"/><rect x="96" y="120" width="12" height="12" fill="#5d606b"/><rect x="108" y="120" width="12" height="12" fill="#5d606b"/><rect x="0" y="132" width="12" height="12" fill="#5d606b"/><rect x="12" y="132" width="12" height="12" fill="#5d606b"/><rect x="24" y="132" width="12" height="12" fill="#5d606b"/><rect x="36" y="132" width="12" height="12" fill="#5d606b"/><rect x="48" y="132" width="12" height="12" fill="#5d606b"/><rect x="60" y="132" width="12" height="12" fill="#5d606b"/><rect x="72" y="132" width="12" height="12" fill="#5d606b"/><rect x="84" y="132" width="12" height="12" fill="#5d606b"/><rect x="96" y="132" width="12" height="12" fill="#5d606b"/><rect x="108" y="132" width="12" height="12" fill="#5d606b"/></g>
+            <g clip-path="url(#heroRight)">
+              <circle cx="172" cy="46" r="17" fill="#d9d6cf"/>
+              <polygon points="0,150 0,104 46,74 92,96 140,58 196,92 240,70 240,150" fill="#41434b"/>
+              <polygon points="0,150 0,128 58,96 104,122 156,90 240,132 240,150" fill="#5d606b"/>
+            </g>
+          </g>
+          <line x1="120" y1="0" x2="120" y2="150" stroke="var(--amber)" stroke-width="2"/>
+          <circle cx="120" cy="75" r="11" fill="#202124" stroke="var(--amber)" stroke-width="2"/>
+          <path d="M117 71 l-4 4 l4 4 M123 71 l4 4 l-4 4" fill="none" stroke="var(--amber)" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <h2 class="empty-title">업스케일할 이미지를 끌어다 놓으세요</h2>
+        <p class="empty-sub">작거나 흐릿한 사진을 AI가 2~4배로 선명하게 키워요. 모든 처리는 이&nbsp;PC 안에서 이뤄져요.</p>
+        <div class="btn-row btn-row-center">
+          <button class="btn btn-big" id="emptyPick" type="button">이미지 고르기</button>
+          <button class="btn btn-big" id="emptyFolder" type="button">폴더 고르기</button>
+        </div>
+        <p class="hint">Ctrl+V로 복사한 이미지를 붙여넣을 수도 있어요.</p>
+      </div>
+    </section>
+
+    <section class="viewer" id="viewer" hidden>
+      <div class="viewport" id="viewport" tabindex="0" aria-label="미리보기. 마우스 휠로 확대, 끌어서 이동">
+        <div class="canvas" id="canvas">
+          <img class="img-before" id="imgBefore" alt="원본" draggable="false">
+          <img class="img-after" id="imgAfter" alt="결과" draggable="false">
+          <div class="scan" id="scan" hidden></div>
+        </div>
+        <div class="divider" id="divider" hidden><span class="knob" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M9 7l-5 5 5 5M15 7l5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>
+        <span class="tag tag-left" id="tagLeft">원본</span>
+        <span class="tag tag-right" id="tagRight" hidden>결과</span>
+        <div class="chip" id="chip" hidden></div>
+        <div class="notice" id="notice" hidden>
+          <p class="notice-title" id="noticeTitle"></p>
+          <p class="notice-text" id="noticeText"></p>
+          <details class="notice-detail" id="noticeDetailWrap"><summary>자세한 내용</summary><pre id="noticeDetail"></pre></details>
+          <div class="btn-row btn-row-center" id="noticeActions"></div>
+        </div>
+      </div>
+      <div class="viewer-bar">
+        <div class="vb-info">
+          <span class="v-name" id="vName"></span>
+          <span class="v-dims" id="vDims"></span>
+        </div>
+        <div class="vb-zoom">
+          <button class="icon-btn" id="zoomOut" type="button" aria-label="축소" title="축소 (-)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+          <button class="btn btn-small" id="zoomFit" type="button" title="화면에 맞추기 (0)">맞춤</button>
+          <button class="btn btn-small" id="zoom100" type="button" title="실제 크기 (1)">100%</button>
+          <button class="icon-btn" id="zoomIn" type="button" aria-label="확대" title="확대 (+)"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 10h10M10 5v10" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+          <span class="zoom-text" id="zoomText"></span>
+          <label class="check check-small" title="원본을 부드럽게 늘리지 않고 픽셀 그대로 보여 줘요"><input type="checkbox" id="pixelView"><span>원본 픽셀 보기</span></label>
+        </div>
+        <div class="vb-actions">
+          <button class="btn btn-small" id="openResult" type="button">결과 열기</button>
+          <button class="btn btn-small" id="revealResult" type="button">폴더에서 보기</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="strip" id="strip" hidden aria-label="작업 목록">
+      <div class="strip-scroll" id="stripScroll">
+        <button class="tile tile-add" id="tileAdd" type="button" title="이미지 더 넣기" aria-label="이미지 더 넣기"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      </div>
+      <div class="strip-meta">
+        <p class="strip-count" id="stripCount"></p>
+        <div class="btn-row btn-row-tight">
+          <button class="btn btn-small" id="clearDone" type="button">완료한 이미지 빼기</button>
+          <button class="btn btn-small" id="clearAll" type="button">목록 비우기</button>
+        </div>
+      </div>
+    </section>
+
+    <div class="drop-veil" id="dropVeil" hidden><p>놓으면 목록에 추가돼요</p></div>
+    <div class="toasts" id="toasts" aria-live="polite"></div>
+  </main>
+</div>
+
+<dialog class="dlg" id="settingsDlg" aria-labelledby="settingsTitle">
+  <form method="dialog" class="dlg-head">
+    <h2 id="settingsTitle">고급 설정</h2>
+    <button class="icon-btn" value="close" aria-label="닫기"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  </form>
+  <div class="dlg-body">
+    <section class="set-row">
+      <label class="set-label" for="gpuSelect">그래픽카드(GPU)</label>
+      <select id="gpuSelect"></select>
+      <p class="hint">노트북처럼 그래픽카드가 둘이면 '자동'이 성능 좋은 쪽을 골라요.</p>
+    </section>
+    <section class="set-row">
+      <label class="set-label" for="tileSelect">타일 크기</label>
+      <select id="tileSelect">
+        <option value="0">자동 (추천)</option>
+        <option value="512">512</option>
+        <option value="256">256</option>
+        <option value="128">128</option>
+        <option value="64">64</option>
+        <option value="32">32</option>
+      </select>
+      <p class="hint">'그래픽 메모리가 부족하다'는 오류가 나면 더 작게 바꿔 보세요. 작을수록 느려져요.</p>
+    </section>
+    <section class="set-row">
+      <label class="check"><input type="checkbox" id="ttaCheck"><span>고품질 모드 (TTA)</span></label>
+      <p class="hint">결과가 조금 더 깨끗해지지만 처리 시간이 약 8배 걸려요.</p>
+    </section>
+    <section class="set-row">
+      <span class="set-label">창 모드</span>
+      <label class="radio"><input type="radio" name="uimode" value="auto"><span>앱 창 (추천)</span></label>
+      <label class="radio"><input type="radio" name="uimode" value="browser"><span>웹 브라우저로 열기</span></label>
+      <p class="hint">앱 창이 제대로 안 뜰 때만 바꾸세요. 다음에 실행할 때부터 적용돼요.</p>
+    </section>
+    <section class="set-row" id="engineSection">
+      <span class="set-label">엔진 상태</span>
+      <p class="engine-msg" id="engineMsg"></p>
+      <ul class="gpu-list" id="gpuList"></ul>
+      <details class="notice-detail" id="engineDetailWrap" hidden><summary>자세한 내용</summary><pre id="engineDetail"></pre></details>
+      <div class="btn-row">
+        <button class="btn btn-small" id="probeBtn" type="button">엔진 다시 확인</button>
+        <button class="btn btn-small" id="driverBtn" type="button">드라이버 안내</button>
+      </div>
+    </section>
+    <section class="set-row">
+      <span class="set-label">폴더</span>
+      <div class="btn-row">
+        <button class="btn btn-small" data-open-dir="models" type="button">모델 폴더</button>
+        <button class="btn btn-small" data-open-dir="logs" type="button">기록 폴더</button>
+        <button class="btn btn-small" data-open-dir="app" type="button">프로그램 폴더</button>
+      </div>
+    </section>
+    <section class="set-row about">
+      <p>AI 업스케일러 <span id="aboutVersion"></span></p>
+      <p class="hint">업스케일 엔진: <button class="link-btn" data-url="upscayl" type="button">Upscayl (upscayl-bin)</button>, 모델: <button class="link-btn" data-url="realesrgan" type="button">Real-ESRGAN</button>. 각 라이선스는 프로그램 폴더의 licenses 폴더에 있어요.</p>
+    </section>
+  </div>
+</dialog>
+
+<dialog class="dlg" id="modelsDlg" aria-labelledby="modelsTitle">
+  <form method="dialog" class="dlg-head">
+    <h2 id="modelsTitle">모델 더 받기</h2>
+    <button class="icon-btn" value="close" aria-label="닫기"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg></button>
+  </form>
+  <div class="dlg-body">
+    <p class="hint">Upscayl에 들어 있는 추가 모델이에요. 한 번 받으면 인터넷 없이도 계속 쓸 수 있어요. 개인적인 용도로 쓰세요.</p>
+    <ul class="dl-list" id="dlList"></ul>
+    <section class="set-row">
+      <span class="set-label">직접 모델 넣기</span>
+      <p class="hint">ncnn 형식 모델의 .param 파일과 .bin 파일을 모델 폴더에 함께 넣고 '목록 새로 고침'을 누르면 목록에 나타나요.</p>
+      <div class="btn-row">
+        <button class="btn btn-small" data-open-dir="models" type="button">모델 폴더 열기</button>
+        <button class="btn btn-small" id="rescanBtn" type="button">목록 새로 고침</button>
+      </div>
+    </section>
+  </div>
+</dialog>
+</body>
+</html>
