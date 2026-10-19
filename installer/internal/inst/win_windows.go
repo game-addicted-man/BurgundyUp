@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 	"unsafe"
@@ -20,6 +21,8 @@ import (
 var (
 	user32               = windows.NewLazySystemDLL("user32.dll")
 	ole32                = windows.NewLazySystemDLL("ole32.dll")
+	kernel32             = windows.NewLazySystemDLL("kernel32.dll")
+	procSetDllDirs       = kernel32.NewProc("SetDefaultDllDirectories")
 	procMessageBoxW      = user32.NewProc("MessageBoxW")
 	procSetDpiCtx        = user32.NewProc("SetProcessDpiAwarenessContext")
 	procCoInitializeEx   = ole32.NewProc("CoInitializeEx")
@@ -31,13 +34,37 @@ const (
 	createNoWindow         = 0x08000000
 	createBreakawayFromJob = 0x01000000
 	uninstallKey           = `Software\Microsoft\Windows\CurrentVersion\Uninstall\` + AppID
+	runOnceKey             = `Software\Microsoft\Windows\CurrentVersion\RunOnce`
+	cleanupValue           = AppID + "-Cleanup"
 )
 
-// Init 은 고해상도 화면에서 대화 상자가 흐려지지 않게 합니다 (매니페스트로도 설정됨).
+// Init 은 설치·삭제 프로그램이 시작할 때 부릅니다.
 func Init() {
+	// 설치 파일은 보통 '다운로드' 폴더에서 실행되므로, 거기 놓인 엉뚱한 DLL 을 읽지 않도록
+	// 시스템 폴더(System32)에서만 DLL 을 찾게 합니다.
+	if procSetDllDirs.Find() == nil {
+		procSetDllDirs.Call(windows.LOAD_LIBRARY_SEARCH_SYSTEM32)
+	}
+	// 고해상도 화면에서 대화 상자가 흐려지지 않게 합니다 (매니페스트로도 설정됨).
 	if procSetDpiCtx.Find() == nil {
 		procSetDpiCtx.Call(^uintptr(3)) // PER_MONITOR_AWARE_V2
 	}
+}
+
+var setupMutex windows.Handle
+
+// SingleInstance 는 설치·삭제 프로그램이 동시에 두 개 돌지 않게 합니다. 이미 실행 중이면 false 입니다.
+func SingleInstance() bool {
+	name, _ := windows.UTF16PtrFromString(`Local\` + AppID + `-Setup`)
+	h, err := windows.CreateMutex(nil, false, name)
+	if err == windows.ERROR_ALREADY_EXISTS {
+		if h != 0 {
+			windows.CloseHandle(h)
+		}
+		return false
+	}
+	setupMutex = h // 프로그램이 끝날 때까지 쥐고 있습니다
+	return true
 }
 
 func MessageBox(title, text string, flags uint32) int {
@@ -55,7 +82,8 @@ func FileInUse(path string) bool {
 	}
 	h, err := windows.CreateFile(p, windows.GENERIC_WRITE, 0, nil, windows.OPEN_EXISTING, windows.FILE_ATTRIBUTE_NORMAL, 0)
 	if err != nil {
-		return errors.Is(err, windows.ERROR_SHARING_VIOLATION) || errors.Is(err, windows.ERROR_ACCESS_DENIED)
+		// 실행 중인 exe 는 공유 위반으로 열리지 않습니다. 읽기 전용 같은 '접근 거부'는 실행 중이 아니므로 제외합니다.
+		return errors.Is(err, windows.ERROR_SHARING_VIOLATION) || errors.Is(err, windows.ERROR_LOCK_VIOLATION)
 	}
 	windows.CloseHandle(h)
 	return false
@@ -71,12 +99,19 @@ func StartDetached(exe, dir string) error {
 // ScheduleCleanup 은 삭제 프로그램이 끝난 뒤 자기 자신과 빈 설치 폴더, 데이터 폴더를 지우도록 예약합니다.
 // installDir 은 비어 있을 때만 지우고(rmdir), dataDirs 는 프로그램 전용 폴더라 통째로 지웁니다.
 func ScheduleCleanup(self, installDir string, dataDirs ...string) error {
-	line := `cmd.exe /d /c ping -n 4 127.0.0.1 >nul & del /f /q "` + self + `" & rmdir "` + installDir + `"`
-	for _, d := range dataDirs {
-		if d != "" {
-			line += ` & rmdir /s /q "` + d + `"`
+	// cmd 는 따옴표 안에서도 %이름% 을 바꿔 버리므로, 그런 경로는 예약하지 않습니다 (삭제 프로그램만 남음).
+	for _, p := range append([]string{self, installDir}, dataDirs...) {
+		if strings.ContainsAny(p, `%"`) {
+			return errors.New("경로에 % 가 있어서 정리를 예약하지 않았어요: " + p)
 		}
 	}
+	cleanup := `del /f /q "` + self + `" & rmdir "` + installDir + `"`
+	for _, d := range dataDirs {
+		if d != "" {
+			cleanup += ` & rmdir /s /q "` + d + `"`
+		}
+	}
+	line := `cmd.exe /d /v:off /c ping -n 4 127.0.0.1 >nul & ` + cleanup
 	cmdExe := filepath.Join(os.Getenv("SystemRoot"), "System32", "cmd.exe")
 	if _, err := os.Stat(cmdExe); err != nil {
 		cmdExe = "cmd.exe"
@@ -88,9 +123,26 @@ func ScheduleCleanup(self, installDir string, dataDirs ...string) error {
 		return cmd.Start()
 	}
 	if err := start(createNoWindow | createBreakawayFromJob); err != nil {
+		// '설정 → 앱'처럼 작업 개체(job) 안에서 실행돼 따로 떼어 실행할 수 없으면, 삭제 프로그램이 끝날 때
+		// 정리 작업도 같이 끝날 수 있습니다. 그래서 다음 로그인 때 한 번 더 정리하도록 RunOnce 에도 적어 둡니다.
+		if once := `cmd.exe /d /v:off /c ` + cleanup; len(once) < 260 {
+			if k, _, err := registry.CreateKey(registry.CURRENT_USER, runOnceKey, registry.SET_VALUE); err == nil {
+				_ = k.SetStringValue(cleanupValue, once)
+				k.Close()
+			}
+		}
 		return start(createNoWindow)
 	}
 	return nil
+}
+
+// CancelCleanup 은 지난번 삭제 때 다음 로그인으로 미뤄 둔 정리를 취소합니다.
+// 다시 설치했는데 로그인할 때 새 삭제 프로그램과 설정 폴더가 지워지면 안 되니까요.
+func CancelCleanup() {
+	if k, err := registry.OpenKey(registry.CURRENT_USER, runOnceKey, registry.SET_VALUE); err == nil {
+		_ = k.DeleteValue(cleanupValue)
+		k.Close()
+	}
 }
 
 // ───────────────────────── 바로 가기 (.lnk) ─────────────────────────

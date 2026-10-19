@@ -28,6 +28,10 @@ func main() {
 		}
 		return inst.MessageBox(title, msg, flags)
 	}
+	if !inst.SingleInstance() {
+		say("설치 또는 삭제 프로그램이 이미 실행 중이에요.", inst.MB_OK|inst.MB_ICONWARNING)
+		os.Exit(3)
+	}
 
 	self, err := os.Executable()
 	if err != nil {
@@ -46,7 +50,7 @@ func main() {
 	}
 
 	if !silent && inst.MessageBox(title,
-		"AI 업스케일러를 삭제할까요?\n\n프로그램, 바로 가기, 설정, 내려받은 모델이 모두 지워져요.\n업스케일한 결과 이미지는 지워지지 않아요.",
+		"AI 업스케일러를 삭제할까요?\n\n프로그램, 바로 가기, 설정, 모델(내려받았거나 직접 넣은 것)이 모두 지워져요.\n업스케일한 결과 이미지는 지워지지 않아요.",
 		inst.MB_YESNO|inst.MB_ICONQUESTION|inst.MB_DEFBUTTON2) != inst.IDYES {
 		os.Exit(2)
 	}
@@ -66,6 +70,20 @@ func main() {
 
 	_ = os.Chdir(os.TempDir()) // 설치 폴더를 지울 수 있게 작업 폴더를 옮깁니다.
 
+	// 1) 설치한 파일부터 지웁니다. 하나라도 못 지우면 '설정 → 앱'에서 다시 삭제할 수 있도록
+	//    남은 파일 목록, 제거 항목, 바로 가기, 삭제 프로그램을 그대로 둡니다.
+	if failed := inst.RemoveInstalled(dir, m, self); len(failed) > 0 {
+		_ = inst.WriteMarker(dir, inst.Union(failed, []string{filepath.Base(self)}))
+		shown := failed
+		if len(shown) > 8 {
+			shown = append(append([]string(nil), shown[:8]...), fmt.Sprintf("… 외 %d개", len(failed)-8))
+		}
+		say("일부 파일을 지우지 못했어요.\nAI 업스케일러나 이 폴더를 쓰는 프로그램을 닫은 뒤, '설정 → 앱'에서 다시 삭제해 주세요.\n\n"+
+			strings.Join(shown, "\n"), inst.MB_OK|inst.MB_ICONWARNING)
+		os.Exit(4)
+	}
+
+	// 2) 모두 지웠으면 바로 가기, '설정 → 앱'의 제거 항목, 설정·기록 폴더를 지웁니다.
 	startMenu, desktop := inst.ShortcutPaths()
 	for _, lnk := range []string{startMenu, desktop} {
 		if lnk != "" {
@@ -73,18 +91,19 @@ func main() {
 		}
 	}
 	_ = inst.UnregisterUninstall()
-
+	var dataDirs []string
 	config, data := inst.AppDataDirs()
-	if config != "" {
-		_ = os.RemoveAll(config)
+	for _, d := range []string{config, data} {
+		if d == "" || inst.Overlaps(d, dir) {
+			continue // 설치 폴더와 겹치는 폴더는 통째로 지우지 않습니다
+		}
+		_ = os.RemoveAll(d) // WebView2 가 잠깐 잡고 있으면 남을 수 있어서 끝난 뒤 한 번 더 지웁니다.
+		dataDirs = append(dataDirs, d)
 	}
-	if data != "" {
-		_ = os.RemoveAll(data) // WebView2 가 잠깐 잡고 있으면 남을 수 있어서 끝난 뒤 한 번 더 지웁니다.
-	}
-	inst.RemoveInstalled(dir, m, self)
+	_ = os.Remove(filepath.Join(dir, inst.MarkerName))
 
 	if !silent {
 		inst.MessageBox(title, "AI 업스케일러를 삭제했어요.", inst.MB_OK|inst.MB_ICONINFO)
 	}
-	_ = inst.ScheduleCleanup(self, dir, data)
+	_ = inst.ScheduleCleanup(self, dir, dataDirs...)
 }

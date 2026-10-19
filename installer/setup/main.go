@@ -25,12 +25,16 @@ const title = "AI 업스케일러 설치"
 func main() {
 	inst.Init()
 	silent, dir := false, ""
-	for _, a := range os.Args[1:] {
+	args := os.Args[1:]
+parse:
+	for i, a := range args {
 		switch {
 		case strings.EqualFold(a, "/S"), a == "--silent", a == "-silent":
 			silent = true
 		case len(a) > 3 && strings.EqualFold(a[:3], "/D="):
-			dir = a[3:]
+			// NSIS 처럼 /D= 는 맨 끝에 두고, 띄어쓰기가 있어도 따옴표 없이 쓸 수 있습니다.
+			dir = strings.Join(append([]string{a[3:]}, args[i+1:]...), " ")
+			break parse
 		case strings.HasPrefix(a, "--dir="):
 			dir = strings.TrimPrefix(a, "--dir=")
 		}
@@ -43,6 +47,9 @@ func main() {
 		}
 		os.Exit(code)
 	}
+	if !inst.SingleInstance() {
+		fail("설치 또는 삭제 프로그램이 이미 실행 중이에요.", 3)
+	}
 
 	data, err := payload.ReadFile("payload/payload.zip")
 	if err != nil || len(data) == 0 {
@@ -53,6 +60,9 @@ func main() {
 	}
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
+	}
+	if inst.OverlapsDataDirs(dir) {
+		fail("이 폴더에는 설치할 수 없어요:\n"+dir+"\n\n프로그램의 설정·기록 폴더와 겹쳐요. 다른 폴더를 골라 주세요.", 1)
 	}
 
 	if !silent {
@@ -75,10 +85,21 @@ func main() {
 		}
 	}
 
+	inst.CancelCleanup()
+	var oldFiles []string // 이전에 설치한 버전이 있으면 그 파일 목록
+	if old, err := inst.ReadMarker(dir); err == nil {
+		oldFiles = old.Files
+	}
 	files, err := inst.Extract(data, dir)
 	if err != nil {
+		// 일부만 풀렸어도 다시 설치하거나 삭제할 때 정리할 수 있게 목록을 남깁니다.
+		if len(files) > 0 || oldFiles != nil {
+			_ = inst.WriteMarker(dir, inst.Union(oldFiles, files))
+		}
 		fail("설치하지 못했어요.\n\n"+err.Error(), 1)
 	}
+	// 업데이트: 이전 버전에만 있던 파일은 지우고, 지우지 못한 것은 나중에 삭제할 때 지우도록 목록에 남깁니다.
+	files = inst.Union(files, inst.RemoveFiles(dir, inst.StaleFiles(oldFiles, files), ""))
 	if err := inst.WriteMarker(dir, files); err != nil {
 		fail("설치 정보를 저장하지 못했어요.\n\n"+err.Error(), 1)
 	}

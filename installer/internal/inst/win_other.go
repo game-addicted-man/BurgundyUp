@@ -31,6 +31,10 @@ func MessageBox(title, text string, flags uint32) int {
 
 func FileInUse(path string) bool { return false }
 
+func SingleInstance() bool { return os.Getenv("AIUP_INST_BUSY") == "" }
+
+func CancelCleanup() {}
+
 func StartDetached(exe, dir string) error {
 	cmd := exec.Command(exe)
 	cmd.Dir = dir

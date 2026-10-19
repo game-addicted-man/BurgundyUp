@@ -27,7 +27,7 @@ AI 업스케일링 프로그램
 - 설치 위치: `%LOCALAPPDATA%\Programs\AI-Upscaler` (관리자 권한 필요 없음)
 - 삭제: **설정 → 앱 → 설치된 앱 → AI 업스케일러 → 제거**
 - 설치 없이 쓰려면 `AI-Upscaler-버전-portable.zip`을 풀고 `AI-Upscaler.exe`를 실행하세요.
-- 조용히 설치: `AI-Upscaler-Setup-버전.exe /S` (위치 지정: `/D=폴더`)
+- 조용히 설치: `AI-Upscaler-Setup-버전.exe /S` (위치 지정은 맨 끝에 `/D=폴더`)
 
 ### 필요 사양
 
